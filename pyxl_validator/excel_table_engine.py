@@ -1,3 +1,15 @@
+"""
+excel_table_engine.py
+
+<copyright>
+Copyright (c) 2025, Janusch Rentenatus. This program and the accompanying materials are made available under the
+terms of the Eclipse Public License v2.0 which accompanies this distribution, and is available at
+http://www.eclipse.org/legal/epl-v20.html
+</copyright>
+
+Provides abstract and concrete table engines for reading and writing Excel files (.xlsx, .xls, .ods).
+Includes row iteration and a factory for engine instantiation.
+"""
 from abc import ABC, abstractmethod
 import os
 from typing import Any
@@ -5,69 +17,113 @@ from typing import Any
 import openpyxl
 
 class TableEngine(ABC):
-    """Interface für Tabellen-Engines."""
+    """
+    Abstract interface for table engines supporting Excel-like worksheets.
+
+    Defines methods for reading, writing, and formatting cell and row data.
+    """
 
     # Getter
     @abstractmethod
     def get_max_row(self) -> int:
-        """Gibt die maximale Zeilenanzahl zurück."""
+        """
+        Returns the maximum number of rows in the worksheet.
+        """
         pass
+
     @abstractmethod
     def get_max_col(self) -> int:
-        """Gibt die maximale Spaltenanzahl zurück."""
+        """
+        Returns the maximum number of columns in the worksheet.
+        """
         pass
+
     @abstractmethod
     def get_cell_value(self, row: int, col: int):
-        """Gibt den Wert der Zelle in der Zelle an der angegebenen Zeile und Spalte zurück."""
+        """
+        Returns the value of the cell at the given row and column.
+        """
         pass
+
     @abstractmethod
     def get_row_values(self, row: int) -> list:
-        """Gibt die Werte aller Zellen in der angegebenen Zeile als Liste zurück."""
+        """
+        Returns a list of all cell values in the given row.
+        """
         pass
+
     @abstractmethod
     def get_cell_format(self, row: int, col: int) -> dict:
-        """Gibt das Format der Zelle in der angegebenen Zeile und Spalte als Dictionary zurück."""
+        """
+        Returns the format of the cell at the given row and column as a dictionary.
+        """
         pass
+
     @abstractmethod
     def get_row_formats(self, row: int) -> list:
-        """Gibt die Formate aller Zellen in der angegebenen Zeile als Liste von Dictionaries zurück."""
+        """
+        Returns a list of format dictionaries for all cells in the given row.
+        """
         pass
 
     # Tester
     @abstractmethod
     def is_readonly(self) -> bool:
-        """Gibt zurück, ob die Datei nur lesend ist."""
+        """
+        Returns True if the underlying file is read-only.
+        """
         pass
 
     def is_engine_readonly(self) -> bool:
-        """Gibt zurück, ob die Engine nur lesend ist."""
+        """
+        Returns True if the engine implementation is read-only.
+        """
         pass
 
     # Setter
     @abstractmethod
     def set_cell_value(self, row: int, col: int, value):
-        """Setzt den Wert der Zelle in der angegebenen Zeile und Spalte."""
+        """
+        Sets the value of the cell at the given row and column.
+        """
         pass
+
     @abstractmethod
     def add_row(self, row: int):
-        """Setzt die Werte aller Zellen in der angegebenen Zeile."""
+        """
+        Inserts a new row at the given position.
+        """
         pass
+
     @abstractmethod
     def set_row_values(self, row: int, values: list):
-        """Setzt die Werte aller Zellen in der angegebenen Zeile."""
+        """
+        Sets the values of all cells in the given row.
+        """
         pass
 
     @abstractmethod
     def set_cell_format(self, row: int, col: int, fmt: dict):
-        """Setzt das Format der Zelle in der angegebenen Zeile und Spalte."""
+        """
+        Sets the format of the cell at the given row and column.
+        """
         pass
+
     @abstractmethod
     def set_row_formats(self, row: int, formats: list):
-        """Setzt die Formate aller Zellen in der angegebenen Zeile."""
+        """
+        Sets the formats of all cells in the given row.
+        """
         pass
 
 
 class TableEnginePyxl(TableEngine):
+    """
+    Table engine implementation for .xlsx files using openpyxl.
+
+    Supports reading and writing cell values and formats.
+    """
+
     def __init__(self, ws):
         self.ws = ws
 
@@ -84,6 +140,9 @@ class TableEnginePyxl(TableEngine):
         return [self.ws.cell(row=row, column=c).value for c in range(1, self.get_max_col() + 1)]
 
     def get_cell_format(self, row: int, col: int) -> dict:
+        """
+        Returns font and fill information for the cell as a dictionary.
+        """
         cell = self.ws.cell(row=row, column=col)
         font = cell.font
         fill = cell.fill
@@ -105,7 +164,6 @@ class TableEnginePyxl(TableEngine):
     def is_engine_readonly(self) -> bool:
         return False
 
-    # Setter
     def set_cell_value(self, row: int, col: int, value):
         self.ws.cell(row=row, column=col).value = value
 
@@ -117,9 +175,11 @@ class TableEnginePyxl(TableEngine):
             self.set_cell_value(row, c, val)
 
     def set_cell_format(self, row: int, col: int, fmt: dict):
+        """
+        Sets font and fill for the cell using openpyxl styles.
+        """
         from openpyxl.styles import Font, PatternFill
         cell = self.ws.cell(row=row, column=col)
-        # Font
         cell.font = Font(
             name=fmt.get("font_name", cell.font.name),
             size=fmt.get("font_size", cell.font.size),
@@ -127,7 +187,6 @@ class TableEnginePyxl(TableEngine):
             italic=fmt.get("italic", cell.font.italic),
             color=fmt.get("font_color", cell.font.color)
         )
-        # Fill
         if fmt.get("fill_color"):
             cell.fill = PatternFill(start_color=fmt["fill_color"], end_color=fmt["fill_color"], fill_type="solid")
 
@@ -136,13 +195,11 @@ class TableEnginePyxl(TableEngine):
             self.set_cell_format(row, c, fmt)
 
 
-
 class TableEnginePyexcel(TableEngine):
     """
-    TableEngine für .xls-Dateien auf Basis von pyexcel.
+    Table engine implementation for .xls and .ods files using pyexcel.
 
-    pyexcel ist nur zum Lesen gedacht – Schreiben und Formatierung sind nicht unterstützt.
-    Setter-Methoden werfen daher NotImplementedError.
+    Only supports reading. Writing and formatting are not supported and will raise NotImplementedError.
     """
 
     def __init__(self, sheet):
@@ -155,23 +212,28 @@ class TableEnginePyexcel(TableEngine):
         return self.sheet.number_of_columns()
 
     def get_cell_value(self, row: int, col: int):
+        """
+        Returns the value of the cell at the given row and column (1-based).
+        """
         try:
-            # 0-based indexing im Sheet, wir arbeiten 1-based
             return self.sheet[row - 1, col - 1]
         except (IndexError, KeyError):
             return None
 
     def get_row_values(self, row: int) -> list:
+        """
+        Returns a list of all cell values in the given row (1-based).
+        """
         try:
-            # sheet.row ist eine Liste von Row-Objekten, also per Index zugreifen
             raw_row = self.sheet.row[row - 1]
-            # Row ist iterable, wir wandeln in eine einfache Liste um
             return list(raw_row)
         except (IndexError, KeyError):
             return []
 
     def get_cell_format(self, row: int, col: int) -> dict:
-        # pyexcel liefert keine Formatinfos – wir geben "General" zurück
+        """
+        Returns a default format dictionary, as pyexcel does not support formatting.
+        """
         return {"number_format": "General"}
 
     def get_row_formats(self, row: int) -> list:
@@ -183,21 +245,20 @@ class TableEnginePyexcel(TableEngine):
     def is_engine_readonly(self) -> bool:
         return True
 
-    # Schreib-APIs nicht unterstützt
     def set_cell_value(self, row: int, col: int, value):
-        raise NotImplementedError("pyexcel unterstützt kein Schreiben von Werten.")
+        raise NotImplementedError("pyexcel does not support writing cell values.")
 
     def add_row(self, row: int):
-        raise NotImplementedError("pyexcel unterstützt kein Schreiben von Werten.")
+        raise NotImplementedError("pyexcel does not support adding rows.")
 
     def set_row_values(self, row: int, values: list):
-        raise NotImplementedError("pyexcel unterstützt kein Schreiben von Werten.")
+        raise NotImplementedError("pyexcel does not support writing row values.")
 
     def set_cell_format(self, row: int, col: int, fmt: dict):
-        raise NotImplementedError("pyexcel unterstützt kein Schreiben von Formaten.")
+        raise NotImplementedError("pyexcel does not support cell formatting.")
 
     def set_row_formats(self, row: int, formats: list):
-        raise NotImplementedError("pyexcel unterstützt kein Schreiben von Formaten.")
+        raise NotImplementedError("pyexcel does not support row formatting.")
 
 # ============================================================
 # Iteration
@@ -205,26 +266,25 @@ class TableEnginePyexcel(TableEngine):
 
 class TableRowEnumerator:
     """
-    Iterator für TableEngine-Zeilen.
+    Iterator for TableEngine rows.
 
-    Ermöglicht zeilenweises Durchlaufen eines Worksheets via `next()` oder `for row in ...`.
-    Zusätzlich kann mit `add_row(values)` eine neue Zeile an der aktuellen Position eingefügt werden.
+    Allows row-wise iteration over a worksheet using `next()` or `for row in ...`.
+    Supports inserting a new row at the current position with `add_row(values)`.
 
-    Gibt bei jedem Schritt ein Tupel `(row_index, row_values)` zurück.
+    Each iteration yields a tuple `(row_index, row_values)`.
 
-    Beispiel 1:
-        engine = load_engine("daten.xlsx", "Messwerte")
+    Example:
+        engine = load_engine("data.xlsx", "Measurements")
         for row_index, row_values in TableRowEnumerator(engine):
-            print(f"Zeile {row_index}: {row_values}")
+            print(f"Row {row_index}: {row_values}")
 
-    Beispiel 1:
         enumerator = TableRowEnumerator(engine)
         while True:
             try:
                 r, values = next(enumerator)
-                # Verarbeitung...
-                row_index = enum.add_row(["Messwert A", 42.0, True])
-                print(f"Zeile {row_index} wurde eingefügt.")
+                # Processing...
+                row_index = enum.add_row(["Measurement A", 42.0, True])
+                print(f"Row {row_index} inserted.")
             except StopIteration:
                 break
     """
@@ -247,10 +307,13 @@ class TableRowEnumerator:
 
     def add_row(self, values: list) -> int:
         """
-        Fügt eine neue Zeile an der aktuellen Position ein.
+        Inserts a new row at the current position.
 
-        :param values: Liste der Zellwerte für die neue Zeile.
-        :return: Der Index der eingefügten Zeile.
+        Args:
+            values (list): List of cell values for the new row.
+
+        Returns:
+            int: The index of the inserted row.
         """
         self.engine.add_row(self.current)
         self.engine.set_row_values(self.current, values)
@@ -260,6 +323,9 @@ class TableRowEnumerator:
         return inserted_row
 
     def get_max_row(self):
+        """
+        Returns the current maximum row index.
+        """
         return self.max_row
 
 # ============================================================
@@ -268,20 +334,19 @@ class TableRowEnumerator:
 
 def load_engine(file_path: str, sheet_name: str) -> tuple[Any, TableEngine]:
     """
-    Lädt eine Excel-Datei (.xlsx oder .xls) und gibt das Workbook sowie die zugehörige TableEngine zurück.
+    Loads an Excel file (.xlsx, .xls, .ods) and returns the workbook and the corresponding TableEngine.
 
     Args:
-        file_path (str): Pfad zur Excel-Datei.
-        sheet_name (str): Name des zu ladenden Sheets.
+        file_path (str): Path to the Excel file.
+        sheet_name (str): Name of the sheet to load.
 
     Returns:
-        Tuple[Workbook, TableEngine]: Das Workbook-Objekt und die passende TableEngine-Instanz.
+        tuple: (Workbook, TableEngine) for the loaded file and sheet.
 
     Raises:
-        ImportError: Falls xlrd für .xls nicht installiert ist.
-        ValueError: Falls die Dateiendung nicht unterstützt wird.
+        ImportError: If required packages for .xls or .ods are not installed.
+        ValueError: If the file extension is not supported.
     """
-
     ext = os.path.splitext(file_path)[1].lower()
     if ext == ".xlsx":
         wb = openpyxl.load_workbook(file_path, data_only=False)
@@ -290,23 +355,23 @@ def load_engine(file_path: str, sheet_name: str) -> tuple[Any, TableEngine]:
         try:
             import pyexcel
         except ImportError:
-            raise ImportError("Das Paket 'pyexcel' ist nicht installiert. Installiere es mit 'pip install pyexcel'.")
+            raise ImportError("The package 'pyexcel' is not installed. Install it with 'pip install pyexcel'.")
         try:
             import pyexcel_xls
         except ImportError:
-            raise ImportError("Das Paket 'pyexcel_xls' ist nicht installiert. Installiere es mit 'pip install pyexcel_xls'.")
+            raise ImportError("The package 'pyexcel_xls' is not installed. Install it with 'pip install pyexcel_xls'.")
         wb = pyexcel.get_book(file_name=file_path)
         return wb, TableEnginePyexcel(wb.sheet_by_name(sheet_name))
     elif ext == ".ods":
         try:
             import pyexcel
         except ImportError:
-            raise ImportError("Das Paket 'pyexcel' ist nicht installiert. Installiere es mit 'pip install pyexcel'.")
+            raise ImportError("The package 'pyexcel' is not installed. Install it with 'pip install pyexcel'.")
         try:
             import pyexcel_ods
         except ImportError:
-            raise ImportError("Das Paket 'pyexcel_ods' ist nicht installiert. Installiere es mit 'pip install pyexcel_ods'.")
+            raise ImportError("The package 'pyexcel_ods' is not installed. Install it with 'pip install pyexcel_ods'.")
         wb = pyexcel.get_book(file_name=file_path)
         return wb, TableEnginePyexcel(wb.sheet_by_name(sheet_name))
     else:
-        raise ValueError(f"Nicht unterstützte Dateiendung: {ext}")
+        raise ValueError(f"Unsupported file extension: {ext}")

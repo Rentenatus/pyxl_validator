@@ -1,3 +1,18 @@
+"""
+<copyright>
+Copyright (c) 2025, Janusch Rentenatus. This program and the accompanying materials are made available under the
+terms of the Eclipse Public License v2.0 which accompanies this distribution, and is available at
+http://www.eclipse.org/legal/epl-v20.html
+</copyright>
+
+Unit tests for value validation classes.
+
+This module tests the comparison logic of BoolValidator, DateValidator,
+IntValidator, NumberValidator, and TolerantFloatValidator. It verifies
+correct handling of equality, matching, rounding, corruption, and
+tolerance for various input formats and edge cases.
+"""
+
 import unittest
 from datetime import datetime
 from pyxl_validator.table_validator import (
@@ -9,28 +24,45 @@ from pyxl_validator.table_validator import (
     ComparisonResult
 )
 
-
 def compare_check(test, v, val1, val2, expected):
+    """
+    Helper function to compare two values using a validator and assert the result.
+
+    Args:
+        test (unittest.TestCase): The test case instance.
+        v: Validator instance.
+        val1: First value to compare.
+        val2: Second value to compare.
+        expected (ComparisonResult): Expected comparison result.
+
+    Raises:
+        AssertionError: If the comparison result does not match the expected value.
+    """
     result = v.compare(val1, val2)
     if result != expected:
         print(v)
-        print("val1 =",val1,":",type(val1))
-        print("val2 =", val2,":",type(val2))
+        print("val1 =", val1, ":", type(val1))
+        print("val2 =", val2, ":", type(val2))
         print("result =", result.name)
         print("expected =", expected.name)
-        # Hier der Platz für einen Breackpoint:
         v.compare(val1, val2)
     test.assertEqual(result, expected)
 
-# ------------------------------------------------------------
-# BoolValidator Tests
-# ------------------------------------------------------------
 class TestBoolValidator(unittest.TestCase):
+    """
+    Unit tests for BoolValidator.
+
+    Verifies correct comparison of boolean values and various
+    string representations, including corrupted inputs.
+    """
 
     def setUp(self):
         self.v = BoolValidator()
 
     def test_cases(self):
+        """
+        Tests BoolValidator with different boolean formats and edge cases.
+        """
         cases = [
             # EQUALS
             (True, True, ComparisonResult.EQUALS),
@@ -52,19 +84,23 @@ class TestBoolValidator(unittest.TestCase):
             (self, False, ComparisonResult.CORRUPTED),
             (self.v, True, ComparisonResult.CORRUPTED),
         ]
+
         for val1, val2, expected in cases:
             with self.subTest(val1=val1, val2=val2):
                 compare_check(self, self.v, val1, val2, expected)
 
-
-
-
-# ------------------------------------------------------------
-# DateValidator Tests
-# ------------------------------------------------------------
 class TestDateValidator(unittest.TestCase):
+    """
+    Unit tests for DateValidator.
+
+    Verifies correct comparison of date and datetime values,
+    including precision handling and corrupted inputs.
+    """
 
     def test_cases(self):
+        """
+        Tests DateValidator with various date formats, precisions, and edge cases.
+        """
         cases = [
             # EQUALS
             ("2023-10-01", "2023-10-01", ComparisonResult.EQUALS, "day"),
@@ -85,18 +121,24 @@ class TestDateValidator(unittest.TestCase):
             ("invalid-date", "2023-10-01", ComparisonResult.CORRUPTED, "day"),
             (self, "2023-10-01", ComparisonResult.CORRUPTED, "day"),
         ]
+
         for val1, val2, expected, precision in cases:
             with self.subTest(val1=val1, val2=val2, precision=precision):
                 v = DateValidator(precision=precision)
                 compare_check(self, v, val1, val2, expected)
 
-
-# ------------------------------------------------------------
-# NumberValidator Tests
-# ------------------------------------------------------------
 class TestNumberValidator(unittest.TestCase):
+    """
+    Unit tests for NumberValidator.
+
+    Verifies correct comparison of numbers, including string formats,
+    rounding, currency, and corrupted inputs.
+    """
 
     def test_cases(self):
+        """
+        Tests NumberValidator with various numeric formats, rounding, and edge cases.
+        """
         cases = [
             # EQUALS
             (5, 5, ComparisonResult.EQUALS, 10),
@@ -150,15 +192,21 @@ class TestNumberValidator(unittest.TestCase):
                 v = NumberValidator(float_precision=prec)
                 compare_check(self, v, val1, val2, expected)
 
-# ------------------------------------------------------------
-# IntValidator Tests
-# ------------------------------------------------------------
 class TestIntValidator(unittest.TestCase):
+    """
+    Unit tests for IntValidator.
+
+    Verifies correct comparison of integer values and string representations,
+    including corrupted inputs.
+    """
 
     def setUp(self):
         self.v = IntValidator()
 
     def test_cases(self):
+        """
+        Tests IntValidator with various integer formats and edge cases.
+        """
         cases = [
             # EQUALS
             (5, 5, ComparisonResult.EQUALS),
@@ -192,13 +240,18 @@ class TestIntValidator(unittest.TestCase):
             with self.subTest(val1=val1, val2=val2):
                 compare_check(self, self.v, val1, val2, expected)
 
-
-# ------------------------------------------------------------
-# TolerantFloatValidator Tests
-# ------------------------------------------------------------
 class TestTolerantFloatValidator(unittest.TestCase):
+    """
+    Unit tests for TolerantFloatValidator.
+
+    Verifies correct comparison of float values with tolerance,
+    rounding, and corrupted inputs.
+    """
 
     def test_cases(self):
+        """
+        Tests TolerantFloatValidator with various float values and tolerance settings.
+        """
         cases = [
             # EQUALS
             (1.00, 1.00, ComparisonResult.EQUALS),
@@ -220,14 +273,9 @@ class TestTolerantFloatValidator(unittest.TestCase):
             # CORRUPTED
             ("not a number", 1.0, ComparisonResult.CORRUPTED),
         ]
+
         v = TolerantFloatValidator(delta_up=0.02, delta_down=0.01, float_precision=2)
         for val1, val2, expected in cases:
             with self.subTest(val1=val1, val2=val2):
                 compare_check(self, v, val1, val2, expected)
 
-
-# ------------------------------------------------------------
-# Test Runner
-# ------------------------------------------------------------
-if __name__ == "__main__":
-    unittest.main()

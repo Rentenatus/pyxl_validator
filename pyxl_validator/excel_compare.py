@@ -1,44 +1,51 @@
 """
 excel_compare.py
 
-Vergleicht zwei Excel-Worksheets (.xlsx via openpyxl, .xls via xlrd)
-unter Verwendung eines Engine-Interfaces, um if/elif-Kaskaden zu vermeiden.
+<copyright>
+Copyright (c) 2025, Janusch Rentenatus. This program and the accompanying materials are made available under the
+terms of the Eclipse Public License v2.0 which accompanies this distribution, and is available at
+http://www.eclipse.org/legal/epl-v20.html
+</copyright>
 
-Struktur:
-    - TableEngine (Interface)
-    - TableEnginePyxl (Implementierung für openpyxl)
-    - TableEngineXlrd (Implementierung für xlrd)
-    - Factory-Funktion: load_engine(file_path, sheet_name)
-    - Vergleichsfunktionen: compare_sheets_by_file, compare_sheets_by_ws
+Compares two Excel worksheets (.xlsx via openpyxl, .xls via xlrd)
+using an engine interface to avoid if/elif cascades.
+
+Structure:
+    - TableEngine (interface)
+    - TableEnginePyxl (implementation for openpyxl)
+    - TableEngineXlrd (implementation for xlrd)
+    - Factory function: load_engine(file_path, sheet_name)
+    - Comparison functions: compare_sheets_by_file, compare_sheets_by_ws
 """
-
 
 from pyxl_validator.excel_table_engine import TableEngine, TableRowEnumerator, load_engine
 from pyxl_validator.table_validator import ComparisonResult, EqualValidator
 from typing import Any
 
 # ============================================================
-# Vergleichslogik
+# Comparison Logic
 # ============================================================
 
 def compare_sheets_by_file(file1, sheet1, file2, sheet2,
                            validator_arr=None, validator_dict=None, default_validator=None):
     """
-    Vergleicht zwei Excel-Worksheets anhand ihrer Dateipfade und Sheetnamen.
+    Compares two Excel worksheets by file path and sheet name.
 
-    Lädt die Tabellen über die Engine-Fabrik und delegiert den Vergleich
-    an compare_sheets_by_ws. Optional können Validatoren spaltenweise
-    übergeben werden – entweder als Liste (validator_arr), als Dictionary
-    (validator_dict), oder als Fallback (default_validator).
+    Loads the tables using the engine factory and delegates the comparison
+    to compare_sheets_by_ws. Optionally, validators can be provided per column
+    as a list (validator_arr), a dictionary (validator_dict), or a fallback (default_validator).
 
-    :param file1: Pfad zur Datei mit den gemessenen Werten.
-    :param sheet1: Name des zu vergleichenden Sheets in Datei 1.
-    :param file2: Pfad zur Datei mit den erwarteten Werten.
-    :param sheet2: Name des zu vergleichenden Sheets in Datei 2.
-    :param validator_arr: Liste von Validatoren pro Spalte (Index-basiert).
-    :param validator_dict: Dictionary mit Validatoren pro Spalte (Index oder Spaltenname).
-    :param default_validator: Fallback-Validator für nicht spezifizierte Spalten.
-    :return: Liste von Vergleichsergebnissen (ComparisonResult).
+    Args:
+        file1 (str): Path to the file with measured values.
+        sheet1 (str): Name of the sheet in file1 to compare.
+        file2 (str): Path to the file with expected values.
+        sheet2 (str): Name of the sheet in file2 to compare.
+        validator_arr (list, optional): List of validators per column (index-based).
+        validator_dict (dict, optional): Dictionary of validators per column (index or name).
+        default_validator (TableValidator, optional): Fallback validator for unspecified columns.
+
+    Returns:
+        list: List of comparison results (ComparisonResult).
     """
     _, eng1 = load_engine(file1, sheet1)
     _, eng2 = load_engine(file2, sheet2)
@@ -49,25 +56,26 @@ def compare_sheets_by_ws(eng1: TableEngine, eng2: TableEngine,
                          validator_arr=None, validator_dict=None, default_validator=None,
                          consumer=None):
     """
-    Vergleicht zwei Excel-Worksheets zeilenweise und spaltenweise.
+    Compares two Excel worksheets row by row and column by column.
 
-    Nutzt TableRowEnumerator für zeilenweises Durchlaufen.
-    Validatoren werden pro Spalte angewendet. Unterschiede werden als
-    ComparisonResult gesammelt. Strukturelle Differenzen wie längere oder
-    kürzere Zeilen werden ebenfalls dokumentiert.
+    Uses TableRowEnumerator for row-wise iteration.
+    Validators are applied per column. Differences are collected as ComparisonResult.
+    Structural differences such as longer or shorter rows are also documented.
 
-    Falls ein `consumer`-Objekt übergeben wird, wird jede Zeile direkt nach
-    dem Vergleich an `consumer.diff(...)` übergeben. Dies ermöglicht
-    speicherschonende Verarbeitung großer Tabellen oder Live-Streaming
-    von Vergleichsergebnissen.
+    If a `consumer` object is provided, each row is passed directly to `consumer.diff(...)`
+    after comparison. This enables memory-efficient processing of large tables or live streaming
+    of comparison results.
 
-    :param eng1: TableEngine mit den gemessenen Werten.
-    :param eng2: TableEngine mit den erwarteten Werten.
-    :param validator_arr: Liste von Validatoren pro Spalte (Index-basiert).
-    :param validator_dict: Dictionary mit Validatoren pro Spalte (Index oder Spaltenname).
-    :param default_validator: Fallback-Validator für nicht spezifizierte Spalten.
-    :param consumer: Optionales Objekt mit diff()-Methode zur zeilenweisen Verarbeitung.
-    :return: Falls kein consumer gesetzt ist, Liste aller Vergleichsergebnisse.
+    Args:
+        eng1 (TableEngine): TableEngine with measured values.
+        eng2 (TableEngine): TableEngine with expected values.
+        validator_arr (list, optional): List of validators per column (index-based).
+        validator_dict (dict, optional): Dictionary of validators per column (index or name).
+        default_validator (TableValidator, optional): Fallback validator for unspecified columns.
+        consumer (object, optional): Object with a diff() method for row-wise processing.
+
+    Returns:
+        list: List of all comparison results if no consumer is set.
     """
     validator_arr = calculate_validator_array(eng2, validator_arr, validator_dict, default_validator)
     enum1 = TableRowEnumerator(eng1)
@@ -78,23 +86,28 @@ def compare_sheets_by_ws(eng1: TableEngine, eng2: TableEngine,
 def compare_sheets_by_enum(enum1: TableRowEnumerator, enum2: TableRowEnumerator,
                            validator_arr=None, consumer=None):
     """
-    Vergleicht zwei TableRowEnumerator zeilenweise und spaltenweise.
+    Compares two TableRowEnumerators row by row and column by column.
 
-    Jede Zeile wird mit compare_a_row verglichen. Falls ein consumer gesetzt ist,
-    wird jede Vergleichszeile direkt übergeben. Andernfalls wird eine Gesamtliste zurückgegeben.
+    Each row is compared using compare_a_row. If a consumer is set,
+    each comparison row is passed directly. Otherwise, a complete list is returned.
 
-    :param enum1: Enumerator über die gemessenen Werte.
-    :param enum2: Enumerator über die erwarteten Werte.
-    :param validator_arr: Liste von Validatoren pro Spalte.
-    :param consumer: Optionales Objekt mit diff()-Methode zur zeilenweisen Verarbeitung.
-    :return: Liste aller Vergleichsergebnisse oder None bei consumer-Modus.
+    Args:
+        enum1 (TableRowEnumerator): Enumerator over measured values.
+        enum2 (TableRowEnumerator): Enumerator over expected values.
+        validator_arr (list, optional): List of validators per column.
+        consumer (object, optional): Object with a diff() method for row-wise processing.
+
+    Returns:
+        list: List of all comparison results, or None in consumer mode.
     """
     max_rows = max(enum1.get_max_row(), enum2.get_max_row())
     all_differences = [] if consumer is None else None
 
+    # Prepare default validators for the first row comparison
     validator_arr_nur_str = calculate_validator_array(enum2.engine, None, None, EqualValidator())
     compare_next(1, enum1, enum2, validator_arr_nur_str, consumer, all_differences)
 
+    # Compare remaining rows
     for r in range(2, max_rows + 1):
         compare_next(r, enum1, enum2, validator_arr, consumer, all_differences)
 
@@ -103,6 +116,20 @@ def compare_sheets_by_enum(enum1: TableRowEnumerator, enum2: TableRowEnumerator,
 
 def compare_next(r: int, enum1: TableRowEnumerator, enum2: TableRowEnumerator, validator_arr, consumer: Any | None,
                  all_differences: list[Any] | None):
+    """
+    Compares the next row from two enumerators.
+
+    If a row is missing, it is treated as empty. Differences are either collected
+    or passed to a consumer.
+
+    Args:
+        r (int): Row number.
+        enum1 (TableRowEnumerator): Enumerator over measured values.
+        enum2 (TableRowEnumerator): Enumerator over expected values.
+        validator_arr (list): List of validators per column.
+        consumer (object, optional): Object with a diff() method for row-wise processing.
+        all_differences (list, optional): List to collect all differences (if no consumer is set).
+    """
     try:
         index1, row1 = next(enum1)
     except StopIteration:
@@ -123,18 +150,22 @@ def compare_next(r: int, enum1: TableRowEnumerator, enum2: TableRowEnumerator, v
 
 def compare_a_row(row1: list[Any], row2: list[Any], validator_arr: list) -> list[ComparisonResult]:
     """
-    Vergleicht zwei Zeilen zellenweise mit Hilfe der Validatoren.
+    Compares two rows cell by cell using the provided validators.
 
-    :param row1: Wertezeile aus Messdaten.
-    :param row2: Wertezeile aus Referenzdaten.
-    :param validator_arr: Liste von Validatoren pro Spalte.
-    :return: Liste von ComparisonResult-Werten pro Zelle.
+    Args:
+        row1 (list): Row of measured values.
+        row2 (list): Row of reference values.
+        validator_arr (list): List of validators per column.
+
+    Returns:
+        list: List of ComparisonResult values per cell.
     """
     differences = []
     for c, (val1, val2) in enumerate(zip(row1, row2)):
         v = validator_arr[c]
         differences.append(v.compare(val1, val2) if v else ComparisonResult.OMITTED)
 
+    # Handle row length differences
     if len(row1) > len(row2):
         differences.extend([ComparisonResult.LONGER] * (len(row1) - len(row2)))
     elif len(row2) > len(row1):
@@ -150,25 +181,29 @@ def compare_a_row(row1: list[Any], row2: list[Any], validator_arr: list) -> list
 def calculate_validator_array(eng2: TableEngine, validator_arr,
                               validator_dict, default_validator) -> list:
     """
-    Erzeugt ein vollständiges Validator-Array für den Spaltenvergleich.
+    Creates a complete validator array for column comparison.
 
-    Kombiniert die übergebene Validator-Liste mit einem Dictionary,
-    das entweder Spaltenindizes oder Spaltennamen referenziert.
-    Fehlende Einträge werden mit dem Default-Validator aufgefüllt.
+    Combines the provided validator list with a dictionary that references
+    either column indices or column names. Missing entries are filled with the default validator.
 
-    :param eng2: Engine mit den erwarteten Werten (für Spaltennamenzugriff).
-    :param validator_arr: Liste von Validatoren pro Spalte (Index-basiert).
-    :param validator_dict: Dictionary mit Validatoren pro Spalte (Index oder Spaltenname).
-    :param default_validator: Fallback-Validator für nicht spezifizierte Spalten.
-    :return: Vollständige Liste von Validatoren pro Spalte.
+    Args:
+        eng2 (TableEngine): Engine with expected values (for column name access).
+        validator_arr (list, optional): List of validators per column (index-based).
+        validator_dict (dict, optional): Dictionary of validators per column (index or name).
+        default_validator (TableValidator, optional): Fallback validator for unspecified columns.
+
+    Returns:
+        list: Complete list of validators per column.
     """
     max_cols = eng2.get_max_col()
 
+    # Initialize validator array
     if validator_arr is None:
         validator_arr = [default_validator] * max_cols
     elif len(validator_arr) < max_cols:
         validator_arr.extend([default_validator] * (max_cols - len(validator_arr)))
 
+    # Override with dictionary values
     if validator_dict:
         row2 = eng2.get_row_values(1)
         for key, value in validator_dict.items():
@@ -179,6 +214,6 @@ def calculate_validator_array(eng2: TableEngine, validator_arr,
                     index = row2.index(key)
                     validator_arr[index] = value
                 except ValueError:
-                    pass  # Spaltenname nicht gefunden
+                    pass  # Column name not found
 
     return validator_arr

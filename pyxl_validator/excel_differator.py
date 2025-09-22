@@ -1,18 +1,24 @@
 """
 excel_differator.py
 
-Vergleicht zwei Excel-Tabellen zeilenweise und dokumentiert Unterschiede visuell und statistisch.
+<copyright>
+Copyright (c) 2025, Janusch Rentenatus. This program and the accompanying materials are made available under the
+terms of the Eclipse Public License v2.0 which accompanies this distribution, and is available at
+http://www.eclipse.org/legal/epl-v20.html
+</copyright>
 
-Funktionalität:
-    - DiffConsumer: verarbeitet Vergleichszeilen, markiert Zellen farblich
-      und fügt bei Abweichungen Messwerte in die Referenztabelle ein
-    - Optional: Erfassung aller fehlerhaften Zellen in einer ComparisonSummary
+Compares two Excel tables row by row and documents differences both visually and statistically.
 
-Verwendete Komponenten:
-    - TableEngine: abstraktes Tabellen-Interface
-    - TableRowEnumerator: Iterator über Tabellenzeilen
-    - ComparisonResult: Enum für Vergleichstypen
-    - ComparisonSummary: Sammlung und Auswertung von Vergleichsergebnissen
+Functionality:
+    - DiffConsumer: Processes comparison rows, highlights cells with colors,
+      and inserts measured values into the reference table for discrepancies.
+    - Optional: Collects all erroneous cells in a ComparisonSummary.
+
+Used components:
+    - TableEngine: Abstract table interface
+    - TableRowEnumerator: Iterator over table rows
+    - ComparisonResult: Enum for comparison types
+    - ComparisonSummary: Collection and evaluation of comparison results
 """
 
 from typing import Any
@@ -27,17 +33,20 @@ from pyxl_validator.table_comparison_summary import ComparisonSummary
 def differentiate_sheets_by_ws(eng1: TableEngine, eng2: TableEngine,
                                registry: ValidatorRegistry, summary: ComparisonSummary):
     """
-    Führt einen zeilenweisen Vergleich zweier Tabellen durch.
+    Performs a row-by-row comparison of two tables.
 
-    Verwendet die ValidatorRegistry zur Spaltenvalidierung und übergibt
-    die Vergleichsergebnisse an einen DiffConsumer. Dieser markiert Zellen
-    farblich und dokumentiert fehlerhafte Zellen in der Summary.
+    Uses the ValidatorRegistry for column validation and passes
+    the comparison results to a DiffConsumer. The consumer highlights cells
+    and documents erroneous cells in the summary.
 
-    :param eng1: Tabelle mit Messwerten.
-    :param eng2: Tabelle mit Referenzwerten (wird farblich markiert und ggf. ergänzt).
-    :param registry: Registry zur Zuordnung von Validatoren zu Spalten.
-    :param summary: Optionales Objekt zur Sammlung fehlerhafter Zellen.
-    :return: Ergebnis des Vergleichs (z. B. None bei Consumer-Modus).
+    Args:
+        eng1 (TableEngine): Table with measured values.
+        eng2 (TableEngine): Table with reference values (will be highlighted and possibly extended).
+        registry (ValidatorRegistry): Registry for assigning validators to columns.
+        summary (ComparisonSummary): Optional object for collecting erroneous cells.
+
+    Returns:
+        Any: Result of the comparison (e.g., None in consumer mode).
     """
     values_row1 = eng2.get_row_values(1)
     validator_arr = registry.resolve_validators(values_row1)
@@ -45,23 +54,27 @@ def differentiate_sheets_by_ws(eng1: TableEngine, eng2: TableEngine,
         summary.set_header_values(values_row1)
     return DiffConsumer(eng1, eng2, summary).compare_sheets_consume_diff(validator_arr)
 
+# ------------------------------------------------------------
+# DiffConsumer
+# ------------------------------------------------------------
 
 class DiffConsumer:
     """
-    Konsument für Vergleichsergebnisse – verarbeitet jede Vergleichszeile.
+    Consumer for comparison results – processes each comparison row.
 
-    - Markiert Zellen in eng2 farblich gemäß ComparisonResult
-    - Fügt bei Abweichungen die Messwerte aus eng1 zusätzlich in eng2 ein
-    - Dokumentiert fehlerhafte Zellen in einer ComparisonSummary
+    - Highlights cells in eng2 according to ComparisonResult.
+    - Inserts measured values from eng1 into eng2 for discrepancies.
+    - Documents erroneous cells in a ComparisonSummary.
     """
 
     def __init__(self, eng1: TableEngine, eng2: TableEngine, summary: ComparisonSummary):
         """
-        Initialisiert den Consumer mit zwei Tabellen und einer optionalen Summary.
+        Initializes the consumer with two tables and an optional summary.
 
-        :param eng1: Tabelle mit Messwerten.
-        :param eng2: Tabelle mit Referenzwerten.
-        :param summary: Objekt zur Sammlung fehlerhafter Zellen.
+        Args:
+            eng1 (TableEngine): Table with measured values.
+            eng2 (TableEngine): Table with reference values.
+            summary (ComparisonSummary): Object for collecting erroneous cells.
         """
         self.enum1 = TableRowEnumerator(eng1)
         self.enum2 = TableRowEnumerator(eng2)
@@ -70,10 +83,13 @@ class DiffConsumer:
 
     def compare_sheets_consume_diff(self, validator_arr):
         """
-        Startet den Vergleich über compare_sheets_by_enum.
+        Starts the comparison using compare_sheets_by_enum.
 
-        :param validator_arr: Liste von Validatoren pro Spalte.
-        :return: Vergleichsergebnis (z.B. None bei Consumer-Modus).
+        Args:
+            validator_arr (list): List of validators per column.
+
+        Returns:
+            Any: Comparison result (e.g., None in consumer mode).
         """
         return compare_sheets_by_enum(self.enum1, self.enum2,
                                       validator_arr=validator_arr, consumer=self)
@@ -81,18 +97,19 @@ class DiffConsumer:
     def diff(self, r: int, index1: int, row1: list[Any], index2: int, row2: list[Any],
              differences: list[ComparisonResult]):
         """
-        Verarbeitet eine Vergleichszeile.
+        Processes a comparison row.
 
-        - Markiert die Referenzzeile farblich.
-        - Fügt bei Abweichung die Messzeile zusätzlich ein.
-        - Dokumentiert fehlerhafte Zellen in der Summary.
+        - Highlights the reference row with colors.
+        - Inserts the measured row if there are discrepancies.
+        - Documents erroneous cells in the summary.
 
-        :param r: Laufende Vergleichszeile (1-basiert).
-        :param index1: Zeilenindex in eng1.
-        :param row1: Werte aus eng1.
-        :param index2: Zeilenindex in eng2.
-        :param row2: Werte aus eng2.
-        :param differences: Liste von ComparisonResult pro Zelle.
+        Args:
+            r (int): Current comparison row (1-based).
+            index1 (int): Row index in eng1.
+            row1 (list): Values from eng1.
+            index2 (int): Row index in eng2.
+            row2 (list): Values from eng2.
+            differences (list[ComparisonResult]): List of ComparisonResult per cell.
         """
         okay = True
         formats_ref = []
@@ -115,8 +132,4 @@ class DiffConsumer:
         if not okay and row1:
             new_row = self.enum2.add_row(row1)
             self.eng2.set_row_formats(new_row, formats_mess)
-
-
-
-
 

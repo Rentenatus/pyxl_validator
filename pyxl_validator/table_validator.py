@@ -1,8 +1,14 @@
 """
 table_validator.py
 
-Definiert das TableValidator-Interface und konkrete Validatoren
-für den Vergleich von Excel-Zellen, basierend auf ComparisonResult.
+<copyright>
+Copyright (c) 2025, Janusch Rentenatus. This program and the accompanying materials are made available under the
+terms of the Eclipse Public License v2.0 which accompanies this distribution, and is available at
+http://www.eclipse.org/legal/epl-v20.html
+</copyright>
+
+Defines the TableValidator interface and concrete validators
+for comparing Excel cells, based on ComparisonResult.
 
 Enum:
     ComparisonResult(IntEnum)
@@ -20,52 +26,58 @@ PYTHON_FLOAT_REGEX = re.compile(r"^[+-]?(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?$
 GERMAN_DEZIM = True
 
 # ============================================================
-# Vergleichsresultate
+# Comparison Results
 # ============================================================
 
 class ComparisonResult(IntEnum):
-    EQUALS = 0       # Werte sind gleich mit ==
-    MATCHING = 1     # Werte sind gleich, wenn auch in unterschiedlichen formaten
-    ALMOST = 2       # Werte sind in vorgegebenen Scope gleich (z.B. Rundungsfehler bei Ganzzahlvergleich,
-                     #                                          Datumsvergleich mit Tag-Genauigkeit)
-    ACCEPTED = 3     # Werte sind akzeptabel unterschiedlich
-    OMITTED = 4      # Vergleich wurde bewusst ausgelassen
-    DIFFERENT = 8    # Werte sind unterschiedlich
-    CORRUPTED = 9    # Mindestens einer der Werte ist ungültig/korrupt (Fehler bei der Verarbeitung)
+    """
+    Enum for cell comparison results.
+    """
+    EQUALS = 0       # Values are exactly equal (==)
+    MATCHING = 1     # Values match, possibly in different formats
+    ALMOST = 2       # Values are nearly equal (e.g., rounding errors, date comparison by day)
+    ACCEPTED = 3     # Values are acceptably different
+    OMITTED = 4      # Comparison was intentionally omitted
+    DIFFERENT = 8    # Values are different
+    CORRUPTED = 9    # At least one value is invalid/corrupted
 
-    SHORTER = 10     # Array oder Zeile in Excel ist zu kurz.
-    LONGER = 11      # Array oder Zeile in Excel ist zu länger als erwartet.
+    SHORTER = 10     # Array or row in Excel is too short
+    LONGER = 11      # Array or row in Excel is longer than expected
 
     def ok(self) -> bool:
-        """Gibt zurück, ob das Ergebnis als akzeptabel gilt."""
+        """
+        Returns True if the result is considered acceptable.
+        """
         return self in {ComparisonResult.EQUALS, ComparisonResult.MATCHING, ComparisonResult.ALMOST,
                         ComparisonResult.ACCEPTED, ComparisonResult.OMITTED}
 
     def foul(self) -> bool:
-        """Gibt zurück, ob das Ergebnis als nicht akzeptabel gilt."""
+        """
+        Returns True if the result is considered not acceptable.
+        """
         return self in {ComparisonResult.DIFFERENT, ComparisonResult.CORRUPTED}
 
     def get_cell_colors(result) -> tuple[str, str]:
         """
-        Gibt das Farbpaar (Messwert, Referenz) für einen Vergleichstyp zurück.
+        Returns the color pair (measured value, reference) for a comparison type.
 
-        :param result: Vergleichsergebnis als ComparisonResult-Enum.
-        :return: Tupel mit zwei RGB-Farben im Format "RRGGBB".
+        :param result: ComparisonResult enum value.
+        :return: Tuple of two RGB color strings ("RRGGBB").
         """
-        return COLOR_MAP.get(result, ("DDDDDD", "DDDDDD"))  # Fallback: fast weiß
+        return COLOR_MAP.get(result, ("DDDDDD", "DDDDDD"))  # Fallback: almost white
 
 
-# RGB-Farben im Format "RRGGBB" für Excel-Zellen (openpyxl-kompatibel)
+# RGB colors for Excel cells (openpyxl compatible)
 COLOR_MAP = {
-    ComparisonResult.EQUALS:     ("FFFFFF", "FFFFFF"),  # weiß, weiß
-    ComparisonResult.MATCHING:   ("FFFFFF", "CCFFCC"),  # weiß, hell grün
-    ComparisonResult.ALMOST:     ("FFFFFF", "CCFFFF"),  # weiß, hell türkis
-    ComparisonResult.ACCEPTED:   ("CCFF99", "FFFF99"),  # hell gelb-grün, hell gelb
-    ComparisonResult.OMITTED:    ("CCCCCC", "CCCCCC"),  # grau, grau
-    ComparisonResult.DIFFERENT:  ("CCFFCC", "FF9999"),  # hell grün, hell rot
-    ComparisonResult.CORRUPTED:  ("FF9999", "FF0000"),  # hell rot, rot
-    ComparisonResult.SHORTER:    ("E0CCFF", "990000"),  # hell lila, dunkel rot
-    ComparisonResult.LONGER:     ("660066", "FFFF99"),  # dunkel lila, hell gelb
+    ComparisonResult.EQUALS:     ("FFFFFF", "FFFFFF"),  # white, white
+    ComparisonResult.MATCHING:   ("FFFFFF", "CCFFCC"),  # white, light green
+    ComparisonResult.ALMOST:     ("FFFFFF", "CCFFFF"),  # white, light turquoise
+    ComparisonResult.ACCEPTED:   ("CCFF99", "FFFF99"),  # light yellow-green, light yellow
+    ComparisonResult.OMITTED:    ("CCCCCC", "CCCCCC"),  # gray, gray
+    ComparisonResult.DIFFERENT:  ("CCFFCC", "FF9999"),  # light green, light red
+    ComparisonResult.CORRUPTED:  ("FF9999", "FF0000"),  # light red, red
+    ComparisonResult.SHORTER:    ("E0CCFF", "990000"),  # light purple, dark red
+    ComparisonResult.LONGER:     ("660066", "FFFF99"),  # dark purple, light yellow
 }
 
 # ============================================================
@@ -73,12 +85,14 @@ COLOR_MAP = {
 # ============================================================
 
 class TableValidator(ABC):
-    """Interface für Zellvergleichs-Validatoren."""
+    """
+    Interface for cell comparison validators.
+    """
 
     @abstractmethod
     def compare(self, val1: Any, val2: Any) -> ComparisonResult:
         """
-        Vergleicht zwei Zellwerte und gibt ein ComparisonResult zurück.
+        Compares two cell values and returns a ComparisonResult.
         """
         pass
 
@@ -88,7 +102,9 @@ class TableValidator(ABC):
 # ============================================================
 
 class EqualValidator(TableValidator):
-    """Vergleicht Werte mit einfachem ==."""
+    """
+    Compares values using simple equality (==).
+    """
 
     def compare(self, val1: Any, val2: Any) -> ComparisonResult:
         return ComparisonResult.EQUALS if val1 == val2 else ComparisonResult.DIFFERENT
@@ -100,7 +116,7 @@ class EqualValidator(TableValidator):
 
 class BoolValidator(TableValidator):
     """
-    Vergleicht boolesche Werte inkl. typischer Excel-Strings:
+    Compares boolean values including typical Excel strings:
     - "TRUE", "FALSE", "WAHR", "FALSCH", "YES", "NO", "JA", "NEIN"
     - 1, 0
     """
@@ -120,7 +136,7 @@ class BoolValidator(TableValidator):
                 return True
             if val in self.FALSE_VALUES:
                 return False
-        raise ValueError(f"Unbekannter Bool-Wert: {val}")
+        raise ValueError(f"Unknown boolean value: {val}")
 
     def compare(self, val1: Any, val2: Any) -> ComparisonResult:
         try:
@@ -139,7 +155,7 @@ class BoolValidator(TableValidator):
 
 class DateValidator(TableValidator):
     """
-    Vergleicht Datumswerte mit einstellbarer Genauigkeit:
+    Compares date values with adjustable precision:
     - "day", "hour", "minute", "second"
     """
 
@@ -152,7 +168,7 @@ class DateValidator(TableValidator):
             return val
         if isinstance(val, str):
             return datetime.fromisoformat(val.strip())
-        raise ValueError(f"Unbekanntes Datum: {val}")
+        raise ValueError(f"Unknown date value: {val}")
 
     def compare(self, val1: Any, val2: Any) -> ComparisonResult:
         try:
@@ -170,7 +186,7 @@ class DateValidator(TableValidator):
             elif self.precision == "second":
                 match = d1.replace(microsecond=0) == d2.replace(microsecond=0)
             else:
-                raise ValueError(f"Unbekannte Genauigkeit: {self.precision}")
+                raise ValueError(f"Unknown precision: {self.precision}")
 
             return ComparisonResult.ALMOST if match else ComparisonResult.DIFFERENT
         except Exception:
@@ -182,7 +198,9 @@ class DateValidator(TableValidator):
 # ============================================================
 
 class OmittedValidator(TableValidator):
-    """Kennzeichnet die Zelle als absichtlich ausgelassen."""
+    """
+    Marks the cell as intentionally omitted.
+    """
 
     def compare(self, val1: Any, val2: Any) -> ComparisonResult:
         return ComparisonResult.OMITTED
@@ -193,12 +211,12 @@ class OmittedValidator(TableValidator):
 # ============================================================
 
 class IgnoreValidator(TableValidator):
-    """Ignoriert den Vergleich und akzeptiert alles als gleich."""
+    """
+    Ignores the comparison and accepts all values as matching.
+    """
 
     def compare(self, val1: Any, val2: Any) -> ComparisonResult:
         return ComparisonResult.MATCHING
-
-
 
 
 # ============================================================
@@ -207,20 +225,20 @@ class IgnoreValidator(TableValidator):
 
 class IntValidator(TableValidator):
     """
-    Vergleicht numerische ganzzahlige Werte:
-    - int + int / int + str → Ganzzahlvergleich
+    Compares integer values:
+    - int + int / int + str → integer comparison
     """
 
     def compare(self, val1: Any, val2: Any) -> ComparisonResult:
-        if val1 == val2 and type(val1) == type (val2): return ComparisonResult.EQUALS
+        if val1 == val2 and type(val1) == type(val2): return ComparisonResult.EQUALS
 
-        # Ganzzahlvergleich
+        # Integer comparison
         like1, normalized1 = _is_int_then_normalize(val1)
         like2, normalized2 = _is_int_then_normalize(val2)
         if like1 and like2:
             return ComparisonResult.MATCHING if normalized1 == normalized2 else ComparisonResult.DIFFERENT
 
-        # Keine Zahl
+        # Not a number
         return ComparisonResult.CORRUPTED
 
 
@@ -230,9 +248,9 @@ class IntValidator(TableValidator):
 
 class NumberValidator(TableValidator):
     """
-    Vergleicht numerische Werte:
-    - int + int / int + str → Ganzzahlvergleich
-    - float + float / float + str / float + int → Vergleich mit Rundung
+    Compares numeric values:
+    - int + int / int + str → integer comparison
+    - float + float / float + str / float + int → comparison with rounding
     """
 
     def __init__(self, float_precision: int = 10):
@@ -242,19 +260,18 @@ class NumberValidator(TableValidator):
         return f"{self.__class__.__name__}(float_precision={self.float_precision})"
 
     def __repr__(self):
-        # repr kann etwas technischer sein, z. B. für Debug-Ausgaben
         return f"<{self.__class__.__name__} float_precision={self.float_precision}>"
 
     def compare(self, val1: Any, val2: Any) -> ComparisonResult:
-        if val1 == val2 and type(val1) == type (val2): return ComparisonResult.EQUALS
+        if val1 == val2 and type(val1) == type(val2): return ComparisonResult.EQUALS
 
-        # Ganzzahlvergleich
+        # Integer comparison
         like1, normalized1 = _is_int_then_normalize(val1)
         like2, normalized2 = _is_int_then_normalize(val2)
         if like1 and like2:
             return ComparisonResult.MATCHING if normalized1 == normalized2 else ComparisonResult.DIFFERENT
 
-        # Fließkommazahlen mit Rundung
+        # Floating point numbers with rounding
         like1, normalized1 = _is_float_then_normalize(val1)
         like2, normalized2 = _is_float_then_normalize(val2)
         if like1 and like2:
@@ -262,9 +279,8 @@ class NumberValidator(TableValidator):
             rounded1 = round(normalized1, self.float_precision)
             rounded2 = round(normalized2, self.float_precision)
             return ComparisonResult.ALMOST if rounded1 == rounded2 else ComparisonResult.DIFFERENT
-        # Keine Zahl
+        # Not a number
         return ComparisonResult.CORRUPTED
-
 
 
 # ============================================================
@@ -273,8 +289,8 @@ class NumberValidator(TableValidator):
 
 class TolerantFloatValidator(TableValidator):
     """
-    Vergleicht Fließkommazahlen mit Toleranzbereich:
-    - akzeptiert Abweichung innerhalb [val2 - delta_down, val2 + delta_up]
+    Compares floating point numbers with a tolerance range:
+    - accepts deviation within [val2 - delta_down, val2 + delta_up]
     """
 
     def __init__(self, delta_up: float, delta_down: float, float_precision: int = 10):
@@ -298,7 +314,7 @@ class TolerantFloatValidator(TableValidator):
                 return ComparisonResult.ACCEPTED
             else:
                 return ComparisonResult.DIFFERENT
-        # Keine Zahl
+        # Not a number
         return ComparisonResult.CORRUPTED
 
 # ============================================================
@@ -307,8 +323,8 @@ class TolerantFloatValidator(TableValidator):
 
 class ExcelValueValidator(TableValidator):
     """
-    Allgemeiner Validator für Excel-Zellwerte.
-    Erkennt automatisch den passenden Vergleichstyp.
+    General validator for Excel cell values.
+    Automatically detects the appropriate comparison type.
     """
 
     def __init__(self):
@@ -317,26 +333,26 @@ class ExcelValueValidator(TableValidator):
         self.number_validator = NumberValidator(float_precision=10)
 
     def compare(self, val1: Any, val2: Any) -> ComparisonResult:
-        # 1. Direkter Vergleich
+        # 1. Direct comparison
         if val1 == val2:
             return ComparisonResult.EQUALS
 
         if val1 is None or val2 is None:
             return ComparisonResult.DIFFERENT
 
-        # 2. Datumslogik
+        # 2. Date logic
         like1, normalized1 = _is_date_then_normalize(val1)
         like2, normalized2 = _is_date_then_normalize(val2)
         if like1 and like2:
             return self.date_validator.compare(normalized1, normalized2)
 
-        # 3. Zahlen
+        # 3. Numbers
         like1, normalized1 = _is_number_then_normalize(val1)
         like2, normalized2 = _is_number_then_normalize(val2)
         if like1 and like2:
             return self.number_validator.compare(normalized1, normalized2)
 
-        # 4. Boolesche Logik
+        # 4. Boolean logic
         if _is_bool_like(val1) and _is_bool_like(val2):
             return self.bool_validator.compare(val1, val2)
 
@@ -344,10 +360,13 @@ class ExcelValueValidator(TableValidator):
         return ComparisonResult.DIFFERENT
 
 # ------------------------------------------------------------
-# Typ-Erkennungsfunktionen
+# Type detection functions
 # ------------------------------------------------------------
 
 def _is_bool_like(val: Any) -> bool:
+    """
+    Checks if a value is boolean-like.
+    """
     if isinstance(val, bool):
         return True
     if isinstance(val, str):
@@ -359,6 +378,9 @@ def _is_bool_like(val: Any) -> bool:
     return False
 
 def _is_date_then_normalize(val: Any) -> tuple[bool, datetime] | tuple[bool, None]:
+    """
+    Checks if a value is date-like and normalizes it to datetime.
+    """
     if isinstance(val, datetime):
         return True, val
     if isinstance(val, date):
@@ -372,6 +394,9 @@ def _is_date_then_normalize(val: Any) -> tuple[bool, datetime] | tuple[bool, Non
     return False, None
 
 def _is_int_then_normalize(val: Any) -> tuple[bool, int]:
+    """
+    Checks if a value is integer-like and normalizes it to int.
+    """
     if isinstance(val, int):
         return True, val
     if isinstance(val, float):
@@ -383,6 +408,10 @@ def _is_int_then_normalize(val: Any) -> tuple[bool, int]:
     return False, 0
 
 def _is_float_then_normalize(val: Any) -> tuple[bool, float]:
+    """
+    Checks if a value is float-like and normalizes it to float.
+    Handles German decimal and currency formats.
+    """
     if isinstance(val, float):
         return True, val
     if isinstance(val, int):
@@ -391,12 +420,12 @@ def _is_float_then_normalize(val: Any) -> tuple[bool, float]:
         val = val.strip().lower()
         waehrung = GERMAN_DEZIM and (("€" in val) or ("euro" in val) or ("," in val))
 
-        # Schritt 1: Entferne Währungszeichen und Leerzeichen
+        # Step 1: Remove currency symbols and spaces
         cleaned = (val.replace("€", "").replace("euro", "").
                    replace(" ", ""))
 
-        # Schritt 2: Ersetze Tausenderpunkt und Dezimalkomma
-        # z.B. "1.234,56" → "1234.56"
+        # Step 2: Replace thousand separator and decimal comma
+        # e.g. "1.234,56" → "1234.56"
         if waehrung:
             cleaned = cleaned.replace(".", "").replace(",", ".")
 
@@ -406,25 +435,12 @@ def _is_float_then_normalize(val: Any) -> tuple[bool, float]:
 
 
 def _is_number_then_normalize(val: Any) -> tuple[bool, int] | tuple[bool, float]:
+    """
+    Checks if a value is number-like and normalizes it.
+    """
     like, normalized  = _is_int_then_normalize(val)
     if like:
         return True, normalized
     return _is_float_then_normalize(val)
 
 
-# ------------------------------------------------------------
-# Registry:
-# ------------------------------------------------------------
-
-VALIDATORS = {
-    "equal": EqualValidator,
-    "bool": BoolValidator,
-    "date": DateValidator,
-    "number": NumberValidator,
-    "int": IntValidator,
-    "tolerant_float": TolerantFloatValidator,
-    "omit": OmittedValidator,
-    "ignore": IgnoreValidator,
-    "auto": ExcelValueValidator,
-    "excel": ExcelValueValidator,
-}
