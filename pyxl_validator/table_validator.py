@@ -70,14 +70,14 @@ class ComparisonResult(IntEnum):
 # RGB colors for Excel cells (openpyxl compatible)
 COLOR_MAP = {
     ComparisonResult.EQUALS:     ("FFFFFF", "FFFFFF"),  # white, white
-    ComparisonResult.MATCHING:   ("FFFFFF", "CCFFCC"),  # white, light green
+    ComparisonResult.MATCHING:   ("FFFFFF", "DDFFDD"),  # white, light green
     ComparisonResult.ALMOST:     ("FFFFFF", "CCFFFF"),  # white, light turquoise
-    ComparisonResult.ACCEPTED:   ("CCFF99", "FFFF99"),  # light yellow-green, light yellow
+    ComparisonResult.ACCEPTED:   ("DDFFAA", "FFFFAA"),  # light yellow-green, light yellow
     ComparisonResult.OMITTED:    ("CCCCCC", "CCCCCC"),  # gray, gray
-    ComparisonResult.DIFFERENT:  ("CCFFCC", "FF9999"),  # light green, light red
+    ComparisonResult.DIFFERENT:  ("99FF99", "FF9999"),  # light green, light red
     ComparisonResult.CORRUPTED:  ("FF9999", "FF0000"),  # light red, red
     ComparisonResult.SHORTER:    ("E0CCFF", "990000"),  # light purple, dark red
-    ComparisonResult.LONGER:     ("660066", "FFFF99"),  # dark purple, light yellow
+    ComparisonResult.LONGER:     ("660066", "CCCCCC"),  # dark purple, light gray
 }
 
 # ============================================================

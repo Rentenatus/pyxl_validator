@@ -79,9 +79,9 @@ class ValidatorRegistry:
         :return: List of TableValidator instances for each column.
         """
         validators = [self.default_validator]*max_col
-        for i, col_name in enumerate(header_row):
-            validator = self.get_validator(column_name=col_name, column_index=i)
-            validators.append(validator)
+        for index, col_name in enumerate(header_row):
+            validator = self.get_validator(column_name=col_name, column_index=index)
+            validators[index] = validator
 
         # Add all explicitly registered index-based validators
         for index, validator in self.by_column_index.items():
