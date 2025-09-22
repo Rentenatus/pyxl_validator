@@ -14,7 +14,7 @@ are detected, highlighted, and documented correctly.
 import os
 import unittest
 from pyxl_validator.excel_table_engine import TableEngine, load_engine
-from pyxl_validator.table_validator import EqualValidator, ExcelValueValidator
+from pyxl_validator.table_validator import EqualValidator, ExcelValueValidator, TolerantFloatValidator, IntValidator
 from pyxl_validator.table_validator_registry import ValidatorRegistry
 from pyxl_validator.table_comparison_summary import ComparisonSummary
 from pyxl_validator.excel_differator import differentiate_sheets_by_ws
@@ -59,6 +59,12 @@ class TestExcelDifferator(unittest.TestCase):
         # Initialize ValidatorRegistry with ExcelValueValidator as default
         self.registry = ValidatorRegistry()
         self.registry.set_default(ExcelValueValidator())
+        self.registry.register_by_name("W3", TolerantFloatValidator(0.001, 0.001, 2))
+        self.registry.register_by_name("W4", TolerantFloatValidator(0.001, 0.001, 4))
+        self.registry.register_by_name("W5", TolerantFloatValidator(0.1, 0.1, 2))
+        self.registry.register_by_name("W7", TolerantFloatValidator(20, 10, 2))
+        self.registry.register_by_name("W8", IntValidator())
+        self.registry.register_by_name("W9", TolerantFloatValidator(30, 10, 2))
 
         # Initialize summary with header row from reference
         self.summary = ComparisonSummary()

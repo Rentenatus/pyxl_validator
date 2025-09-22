@@ -146,13 +146,15 @@ class TableEnginePyxl(TableEngine):
         cell = self.ws.cell(row=row, column=col)
         font = cell.font
         fill = cell.fill
+        number_format = cell.number_format
         return {
             "font_name": font.name,
             "font_size": font.size,
             "bold": font.bold,
             "italic": font.italic,
             "font_color": font.color.rgb if font.color and font.color.type == "rgb" else None,
-            "fill_color": fill.fgColor.rgb if fill and fill.fgColor.type == "rgb" else None
+            "fill_color": fill.fgColor.rgb if fill and fill.patternType and fill.fgColor.type == "rgb" else None,
+            "number_format": number_format or "General"
         }
 
     def get_row_formats(self, row: int) -> list:
@@ -189,8 +191,13 @@ class TableEnginePyxl(TableEngine):
         )
         if fmt.get("fill_color"):
             cell.fill = PatternFill(start_color=fmt["fill_color"], end_color=fmt["fill_color"], fill_type="solid")
+        # Number Format
+        if "number_format" in fmt:
+            cell.number_format = fmt["number_format"]
 
     def set_row_formats(self, row: int, formats: list):
+        if formats is None:
+            return
         for c, fmt in enumerate(formats, start=1):
             self.set_cell_format(row, c, fmt)
 
@@ -231,13 +238,10 @@ class TableEnginePyexcel(TableEngine):
             return []
 
     def get_cell_format(self, row: int, col: int) -> dict:
-        """
-        Returns a default format dictionary, as pyexcel does not support formatting.
-        """
-        return {"number_format": "General"}
+        return None
 
     def get_row_formats(self, row: int) -> list:
-        return [{"number_format": "General"} for _ in range(self.get_max_col())]
+        return None
 
     def is_readonly(self) -> bool:
         return True
@@ -304,6 +308,9 @@ class TableRowEnumerator:
         result = (self.current, row_values)
         self.current += 1
         return result
+
+    def get_row_formats(self):
+        return self.engine.get_row_formats(self.current-1)
 
     def add_row(self, values: list) -> int:
         """

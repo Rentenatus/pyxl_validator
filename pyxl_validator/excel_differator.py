@@ -48,8 +48,14 @@ def differentiate_sheets_by_ws(eng1: TableEngine, eng2: TableEngine,
     Returns:
         Any: Result of the comparison (e.g., None in consumer mode).
     """
+    if eng2.is_engine_readonly():
+        raise Exception("The target engine is read-only and cannot be colored!")
+    if eng2.is_readonly():
+        raise Exception("The target worksheet is read-only and cannot be colored!")
+
     values_row1 = eng2.get_row_values(1)
-    validator_arr = registry.resolve_validators(values_row1)
+    max_col = max(eng1.get_max_col(),eng2.get_max_col())
+    validator_arr = registry.resolve_validators(values_row1, max_col)
     if summary:
         summary.set_header_values(values_row1)
     return DiffConsumer(eng1, eng2, summary).compare_sheets_consume_diff(validator_arr)
@@ -79,6 +85,7 @@ class DiffConsumer:
         self.enum1 = TableRowEnumerator(eng1)
         self.enum2 = TableRowEnumerator(eng2)
         self.eng2 = eng2
+        self.start_max_cols2 = eng2.get_max_col()
         self.summary = summary
 
     def compare_sheets_consume_diff(self, validator_arr):
@@ -116,6 +123,8 @@ class DiffConsumer:
         formats_mess = []
 
         for c, result in enumerate(differences):
+            if c >= self.start_max_cols2:
+                result = ComparisonResult.LONGER
             okay = okay and result.ok()
             fg_ref, fg_mess = result.get_cell_colors()
             formats_ref.append({"fill_color": fg_ref})
@@ -130,6 +139,10 @@ class DiffConsumer:
             self.eng2.set_row_formats(index2, formats_ref)
 
         if not okay and row1:
+            formats = self.enum1.get_row_formats()
+            if formats is None:
+                formats = self.enum2.get_row_formats()
             new_row = self.enum2.add_row(row1)
+            self.eng2.set_row_formats(new_row, formats)
             self.eng2.set_row_formats(new_row, formats_mess)
 

@@ -68,7 +68,7 @@ class ValidatorRegistry:
             return self.by_column_index[column_index]
         return self.default_validator
 
-    def resolve_validators(self, header_row: List[str]) -> List[TableValidator]:
+    def resolve_validators(self, header_row: List[str], max_col: int = 1) -> List[TableValidator]:
         """
         Converts a header row into a complete list of validators for each column.
 
@@ -78,7 +78,7 @@ class ValidatorRegistry:
         :param header_row: List of column names from the first row of the worksheet.
         :return: List of TableValidator instances for each column.
         """
-        validators = []
+        validators = [self.default_validator]*max_col
         for i, col_name in enumerate(header_row):
             validator = self.get_validator(column_name=col_name, column_index=i)
             validators.append(validator)
