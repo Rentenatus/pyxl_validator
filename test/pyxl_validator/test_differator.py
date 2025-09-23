@@ -74,6 +74,25 @@ class TestExcelDifferator(unittest.TestCase):
         self.summary = ComparisonSummary()
         self.summary.set_header_values(self.eng_expected1.get_row_values(1))
 
+    EXPECTED = [
+        {},
+        {},
+        {},
+        {'DIFFERENT': 9},
+        {},
+        {},
+        {'CORRUPTED': 12},
+        {'DIFFERENT': 6},
+        {'DIFFERENT': 6},
+        {'CORRUPTED': 6},
+        {'CORRUPTED': 6, 'DIFFERENT': 12},
+        {'CORRUPTED': 6},
+        {'DIFFERENT': 6},
+        {'DIFFERENT': 15},
+        {},
+        {'DIFFERENT': 4}
+    ]
+
     def test_compare_and_update_expected(self):
         """
         Compares input tables with the expected reference table.
@@ -89,3 +108,7 @@ class TestExcelDifferator(unittest.TestCase):
         self.wb1.save("test/tmp/v-daten1-xlsx.xlsx")
         self.wb2.save("test/tmp/v-daten1-xls.xlsx")
         self.wb2.save("test/tmp/v-daten1-ods.xlsx")
+
+        result = self.summary.summary_by_header_array()
+        for val, expected in zip(result, self.EXPECTED):
+            self.assertEqual(val, expected, f"Failed for {val}")

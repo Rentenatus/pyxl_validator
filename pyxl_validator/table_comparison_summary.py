@@ -7,8 +7,8 @@ terms of the Eclipse Public License v2.0 which accompanies this distribution, an
 http://www.eclipse.org/legal/epl-v20.html
 </copyright>
 
-Definiert die Klasse ComparisonSummary zur Auswertung von Zellvergleichen.
-Verwendet ComparisonResult aus table_validator.py.
+Defines the ComparisonSummary class for evaluating cell comparisons.
+Uses ComparisonResult from table_validator.py.
 """
 
 from collections import defaultdict
@@ -18,70 +18,123 @@ from pyxl_validator.table_validator import ComparisonResult
 
 class ComparisonSummary:
     """
-    Sammelt und analysiert Vergleichsergebnisse von Zellen.
+    Collects and analyzes cell comparison results.
+
+    This class stores the results of cell-by-cell comparisons between two tables.
+    It provides methods to add results, count occurrences of specific result types,
+    generate summaries, and retrieve detailed information about compared cells.
     """
 
     def __init__(self):
-        # Dict: ComparisonResult → Liste von (row, col, val1, val2)
+        """
+        Initializes a new ComparisonSummary instance.
+
+        Attributes:
+            results (Dict[ComparisonResult, List[Tuple[int, int, Any, Any]]]):
+                Maps each ComparisonResult to a list of tuples containing row, column, and cell values.
+            header_values (List[Any]):
+                Stores header values for column-wise summaries.
+        """
         self.results: Dict[ComparisonResult, List[Tuple[int, int, Any, Any]]] = defaultdict(list)
         self.header_values = []
 
     def add(self, row: int, col: int, val1: Any, val2: Any, result: ComparisonResult):
         """
-        Fügt ein Vergleichsergebnis hinzu.
+        Adds a cell comparison result.
 
         Args:
-            row (int): Zeilennummer (1-basiert)
-            col (int): Spaltennummer (1-basiert)
-            val1, val2: Zellwerte
-            result (ComparisonResult): Vergleichsergebnis
+            row (int): Row number (1-based).
+            col (int): Column number (1-based).
+            val1 (Any): Value from the first table.
+            val2 (Any): Value from the second table.
+            result (ComparisonResult): The result of the comparison.
         """
         self.results[result].append((row, col, val1, val2))
 
     def count(self, result_type: ComparisonResult) -> int:
-        """Gibt die Anzahl der Ergebnisse eines bestimmten Typs zurück."""
+        """
+        Returns the number of results of a specific type.
+
+        Args:
+            result_type (ComparisonResult): The type of comparison result to count.
+
+        Returns:
+            int: Number of occurrences of the specified result type.
+        """
         return len(self.results[result_type])
 
     def total(self) -> int:
-        """Gibt die Gesamtanzahl aller verglichenen Zellen zurück."""
+        """
+        Returns the total number of compared cells.
+
+        Returns:
+            int: Total count of all compared cells.
+        """
         return sum(len(lst) for lst in self.results.values())
 
     def summary(self) -> Dict[str, int]:
         """
-        Gibt eine Zusammenfassung als Dictionary zurück:
+        Returns a summary as a dictionary:
         { "MATCHING": 42, "DIFFERENT": 7, ... }
+
+        Returns:
+            Dict[str, int]: Mapping of result type names to their counts.
         """
         return {res.name: len(lst) for res, lst in self.results.items()}
 
     def get_cells(self, result_type: ComparisonResult) -> List[Tuple[int, int, Any, Any]]:
         """
-        Gibt alle Zellen eines bestimmten Vergleichstyps zurück.
+        Returns all cells of a specific comparison result type.
+
+        Args:
+            result_type (ComparisonResult): The type of comparison result.
+
+        Returns:
+            List[Tuple[int, int, Any, Any]]: List of tuples with row, column, and cell values.
         """
         return self.results.get(result_type, [])
 
     def __str__(self):
+        """
+        Returns a string representation of the summary.
+
+        Returns:
+            str: Human-readable summary of comparison results.
+        """
         lines = [f"{res.name}: {len(lst)}" for res, lst in self.results.items()]
         return "Comparison Summary:\n" + "\n".join(lines)
 
-    def set_header_values(self, header_values):
+    def set_header_values(self, header_values: List[Any]):
+        """
+        Sets the header values for column-wise summaries.
+
+        Args:
+            header_values (List[Any]): List of header values.
+        """
         self.header_values = header_values
 
     def summary_by_header_array(self) -> List[Dict[str, int]]:
         """
-        Gibt eine spaltenweise Zusammenfassung als Array zurück.
+        Returns a column-wise summary as an array.
 
-        Rückgabeformat:
+        Return format:
             [
-                { "MATCHING": 12, "DIFFERENT": 3, ... },  # Spalte 1
-                { "MATCHING": 7, "CORRUPTED": 2, ... },   # Spalte 2
+                { "MATCHING": 12, "DIFFERENT": 3, ... },  # Column 1
+                { "MATCHING": 7, "CORRUPTED": 2, ... },   # Column 2
                 ...
             ]
 
-        Die Länge des Arrays entspricht der Anzahl der header_values.
-        Voraussetzung: header_values wurden gesetzt.
+        The length of the array matches the number of header_values.
+        Prerequisite: header_values must be set.
+
+        Returns:
+            List[Dict[str, int]]: List of dictionaries, each representing a column summary.
+
+        Raises:
+            ValueError: If header_values are not set.
         """
         if not self.header_values:
-            raise ValueError("header_values wurden nicht gesetzt.")
+            raise ValueError("header_values must be set before calling summary_by_header_array.")
 
         summary_array = [defaultdict(int) for _ in self.header_values]
 
@@ -91,5 +144,3 @@ class ComparisonSummary:
                     summary_array[col - 1][result.name] += 1
 
         return [dict(counts) for counts in summary_array]
-
-
