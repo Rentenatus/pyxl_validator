@@ -1,0 +1,29 @@
+[project]
+name = "pyxl-validator"
+version = "0.1.0"
+description = "pyxl_validator: Type-safe, semantically extensible Excel validator.for .xls, .xlsx, .ods"
+authors = [{ name = "Janusch Rentenatus"  }]
+license = "Apache-2.0"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "openpyxl"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+xls = [
+    "pyexcel", 
+    "pyexcel-xls"
+]
+ods = [
+    "pyexcel", 
+    "pyexcel-ods"
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
