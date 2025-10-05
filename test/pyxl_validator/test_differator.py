@@ -13,8 +13,8 @@ are detected, highlighted, and documented correctly.
 """
 import os
 import unittest
-from pyxl_validator.excel_table_engine import TableEngine, load_engine
-from pyxl_validator.table_validator import (EqualValidator, ExcelValueValidator, TolerantFloatValidator,
+from pyxl_validator.excel_table_engine import  load_engine
+from pyxl_validator.table_validator import (ExcelValueValidator, TolerantFloatValidator,
                                             OmittedValidator, IntValidator, BoolValidator)
 from pyxl_validator.table_validator_registry import ValidatorRegistry
 from pyxl_validator.table_comparison_summary import ComparisonSummary

@@ -12,6 +12,7 @@ Includes row iteration and a factory for engine instantiation.
 """
 from abc import ABC, abstractmethod
 import os
+from copy import deepcopy
 from typing import Any
 
 import openpyxl
@@ -264,6 +265,101 @@ class TableEnginePyexcel(TableEngine):
     def set_row_formats(self, row: int, formats: list):
         raise NotImplementedError("pyexcel does not support row formatting.")
 
+
+
+class TableEnginePandas(TableEngine):
+
+    """
+    Table engine implementation using pandas DataFrame.
+
+    Supports reading and writing cell values. Optional format DataFrame can store cell-level formatting.
+    """
+
+    def __init__(self, df, fmt=None):
+        try:
+            import pandas as pd
+        except ImportError:
+            raise RuntimeError("TableEnginePandas requires pandas to be installed.")
+
+        self._pd = pd
+        self._deepcopy = deepcopy
+        self.df = df.copy()
+        self.fmt = fmt.copy() if fmt is not None else pd.DataFrame(index=df.index, columns=df.columns)
+
+    def get_max_row(self) -> int:
+        return len(self.df)
+
+    def get_max_col(self) -> int:
+        return len(self.df.columns)
+
+    def get_cell_value(self, row: int, col: int):
+        try:
+            return self.df.iat[row - 1, col - 1]
+        except IndexError:
+            return None
+
+    def get_row_values(self, row: int) -> list:
+        try:
+            return self.df.iloc[row - 1].tolist()
+        except IndexError:
+            return []
+
+    def get_cell_format(self, row: int, col: int) -> dict:
+        try:
+            return self.fmt.iat[row - 1, col - 1]
+        except (IndexError, AttributeError):
+            return None
+
+    def get_row_formats(self, row: int) -> list:
+        try:
+            return self.fmt.iloc[row - 1].tolist()
+        except (IndexError, AttributeError):
+            return []
+
+    def is_readonly(self) -> bool:
+        return False
+
+    def is_engine_readonly(self) -> bool:
+        return False
+
+    def set_cell_value(self, row: int, col: int, value):
+        while row > len(self.df):
+            self.add_row(len(self.df) + 1)
+        self.df.iat[row - 1, col - 1] = value
+
+    def add_row(self, row: int):
+        import pandas as pd
+        empty_row = pd.Series([None] * self.get_max_col(), index=self.df.columns)
+        self.df = pd.concat([
+            self.df.iloc[:row - 1],
+            pd.DataFrame([empty_row]),
+            self.df.iloc[row - 1:]
+        ]).reset_index(drop=True)
+
+        if self.fmt is not None:
+            empty_fmt = pd.Series([None] * self.get_max_col(), index=self.fmt.columns)
+            self.fmt = pd.concat([
+                self.fmt.iloc[:row - 1],
+                pd.DataFrame([empty_fmt]),
+                self.fmt.iloc[row - 1:]
+            ]).reset_index(drop=True)
+
+    def set_row_values(self, row: int, values: list):
+        while row > len(self.df):
+            self.add_row(len(self.df) + 1)
+        for col, val in enumerate(values):
+            self.set_cell_value(row, col + 1, val)
+
+    def set_cell_format(self, row: int, col: int, fmt: dict):
+        while row > len(self.fmt):
+            self.add_row(len(self.fmt) + 1)
+        self.fmt.iat[row - 1, col - 1] = deepcopy(fmt)
+
+    def set_row_formats(self, row: int, formats: list):
+        for col, fmt in enumerate(formats):
+            self.set_cell_format(row, col + 1, fmt)
+
+
 # ============================================================
 # Iteration
 # ============================================================
@@ -335,6 +431,7 @@ class TableRowEnumerator:
         """
         return self.max_row
 
+
 # ============================================================
 # Factory
 # ============================================================
@@ -382,3 +479,10 @@ def load_engine(file_path: str, sheet_name: str) -> tuple[Any, TableEngine]:
         return wb, TableEnginePyexcel(wb.sheet_by_name(sheet_name))
     else:
         raise ValueError(f"Unsupported file extension: {ext}")
+
+def get_pandas_engine(df, fmt=None):
+    try:
+        import pandas as pd
+    except ImportError:
+        raise ImportError("The package 'pandas' is not installed. Install it with 'pip install pandas'.")
+    return TableEnginePandas(df, fmt)
