@@ -1,17 +1,21 @@
 from unittest import TestCase
-from pyxl_validator.excel_table_engine import get_pandas_engine
+from pyxl_validator.excel_table_engine import get_pandas_engine, load_pandas_engine
 import pandas as pd
 
 class TestTableEnginePandas(TestCase):
 
     def setUp(self):
-        self.df = pd.DataFrame([
-            ["Name", "Age", "Active"],
-            ["Alice", 30, True],
-            ["Bob", 25, False]
-        ])
+        self.df = pd.DataFrame(
+            data=[
+                ["Alice", 30, True],
+                ["Bob", 25, False],
+                ["Janusch", 52, False]
+
+            ],
+            columns=["Name", "Age", "Active"]
+        )
+
         self.fmt = pd.DataFrame([
-            [{"bold": False}, {"italic": False}, {"underline": False}],
             [{"bold": False}, {"italic": False}, {"underline": False}],
             [{"bold": False}, {"italic": False}, {"underline": False}]
         ])
@@ -24,10 +28,10 @@ class TestTableEnginePandas(TestCase):
         self.assertEqual(self.pandas_engine.get_max_col(), 3)
 
     def test_get_cell_value(self):
-        self.assertEqual(self.pandas_engine.get_cell_value(2, 1), "Alice")
+        self.assertEqual(self.pandas_engine.get_cell_value(1, 1), "Alice")
 
     def test_get_row_values(self):
-        self.assertEqual(self.pandas_engine.get_row_values(3), ["Bob", 25, False])
+        self.assertEqual(self.pandas_engine.get_row_values(2), ["Bob", 25, False])
 
     def test_get_cell_format(self):
         fmt = self.pandas_engine.get_cell_format(1, 1)
@@ -69,3 +73,15 @@ class TestTableEnginePandas(TestCase):
         self.pandas_engine.set_row_formats(1, new_formats)
         fmt_row = self.pandas_engine.get_row_formats(1)
         self.assertEqual(fmt_row, new_formats)
+
+    def test_save(self):
+        try:
+            self.pandas_engine.save_as("test/tmp/test_output_engine_pandas")
+        except Exception as e:
+            self.fail(f"Saving raised an exception: {e}")
+        pandas_engine2=load_pandas_engine("test/tmp/test_output_engine_pandas")
+        pandas_engine2.save_as("test/tmp/test_output_engine_pandas2")
+        self.assertEqual(pandas_engine2.get_row_values(1), self.pandas_engine.get_row_values(1))
+        self.assertEqual(pandas_engine2.get_row_values(2), self.pandas_engine.get_row_values(2))
+        self.assertEqual(pandas_engine2.get_cell_format(1,1), self.pandas_engine.get_cell_format(1,1))
+        self.assertEqual(pandas_engine2.get_cell_format(2,3), self.pandas_engine.get_cell_format(2,3))

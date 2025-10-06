@@ -282,9 +282,21 @@ class TableEnginePandas(TableEngine):
             raise RuntimeError("TableEnginePandas requires pandas to be installed.")
 
         self._pd = pd
-        self._deepcopy = deepcopy
         self.df = df.copy()
-        self.fmt = fmt.copy() if fmt is not None else pd.DataFrame(index=df.index, columns=df.columns)
+
+        # Format vorbereiten
+        if fmt is not None:
+            self.fmt = fmt.copy()
+            # Zeilen auffüllen, falls fmt kürzer ist
+            missing_rows = len(self.df) - len(self.fmt)
+            if missing_rows > 0:
+                empty_rows = pd.DataFrame(
+                    [[{}] * len(self.fmt.columns)] * missing_rows,
+                    columns=self.fmt.columns
+                )
+                self.fmt = pd.concat([self.fmt, empty_rows], ignore_index=True)
+        else:
+            self.fmt = pd.DataFrame(index=self.df.index, columns=self.df.columns)
 
     def get_max_row(self) -> int:
         return len(self.df)
@@ -328,19 +340,18 @@ class TableEnginePandas(TableEngine):
         self.df.iat[row - 1, col - 1] = value
 
     def add_row(self, row: int):
-        import pandas as pd
-        empty_row = pd.Series([None] * self.get_max_col(), index=self.df.columns)
-        self.df = pd.concat([
+        empty_row = self._pd.Series([None] * self.get_max_col(), index=self.df.columns)
+        self.df = self._pd.concat([
             self.df.iloc[:row - 1],
-            pd.DataFrame([empty_row]),
+            self._pd.DataFrame([empty_row]),
             self.df.iloc[row - 1:]
         ]).reset_index(drop=True)
 
         if self.fmt is not None:
-            empty_fmt = pd.Series([None] * self.get_max_col(), index=self.fmt.columns)
-            self.fmt = pd.concat([
+            empty_fmt = self._pd.Series([{}] * self.get_max_col(), index=self.fmt.columns)
+            self.fmt = self._pd.concat([
                 self.fmt.iloc[:row - 1],
-                pd.DataFrame([empty_fmt]),
+                self._pd.DataFrame([empty_fmt]),
                 self.fmt.iloc[row - 1:]
             ]).reset_index(drop=True)
 
@@ -358,6 +369,32 @@ class TableEnginePandas(TableEngine):
     def set_row_formats(self, row: int, formats: list):
         for col, fmt in enumerate(formats):
             self.set_cell_format(row, col + 1, fmt)
+
+
+
+    def save_as(self, filename: str):
+        """
+        Saves the DataFrame, format DataFrame, and structure to disk.
+        """
+        try:
+            import json
+        except ImportError:
+            raise ImportError("The package 'json' is not installed. Install it with 'pip install json'.")
+
+        # Values als CSV
+        self.df.to_csv(f"{filename}_df.csv", index=False)
+
+        # Formats als CSV
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", FutureWarning)
+            fmt_serialized = self.fmt.applymap(lambda x: json.dumps(x) if isinstance(x, dict) else "")
+        fmt_serialized.to_csv(f"{filename}_fmt.csv", index=False)
+
+        # Structure als JSON
+        structure = {col: str(dtype) for col, dtype in self.df.dtypes.items()}
+        with open(f"{filename}_st.json", "w", encoding="utf-8") as f:
+            json.dump(structure, f, indent=2)
 
 
 # ============================================================
@@ -485,4 +522,35 @@ def get_pandas_engine(df, fmt=None):
         import pandas as pd
     except ImportError:
         raise ImportError("The package 'pandas' is not installed. Install it with 'pip install pandas'.")
+    return TableEnginePandas(df, fmt)
+
+def load_pandas_engine(filename: str):
+    """
+    Loads the DataFrame, format DataFrame, and structure from disk.
+    Returns a new TableEnginePandas instance.
+    """
+    try:
+        import json
+    except ImportError:
+        raise ImportError("The package 'json' is not installed. Install it with 'pip install json'.")
+    try:
+        import pandas as pd
+    except ImportError:
+        raise ImportError("The package 'pandas' is not installed. Install it with 'pip install pandas'.")
+
+
+    # Structure
+    with open(f"{filename}_st.json", "r", encoding="utf-8") as f:
+        structure = json.load(f)
+
+    # Values
+    df = pd.read_csv(f"{filename}_df.csv", dtype=structure)
+
+    # Formats
+    fmt_raw = pd.read_csv(f"{filename}_fmt.csv")
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        fmt = fmt_raw.applymap(lambda x: json.loads(x) if isinstance(x, str) and x.strip() else None)
+
     return TableEnginePandas(df, fmt)

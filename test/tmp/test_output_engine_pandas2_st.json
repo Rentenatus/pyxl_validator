@@ -1,0 +1,5 @@
+{
+  "Name": "object",
+  "Age": "int64",
+  "Active": "bool"
+}
