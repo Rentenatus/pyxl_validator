@@ -13,7 +13,7 @@ are detected, highlighted, and documented correctly.
 """
 import os
 import unittest
-from pyxl_validator.excel_table_engine import  load_engine
+from pyxl_validator.excel_table_engine import load_engine, copy_to_pandas
 from pyxl_validator.table_validator import (ExcelValueValidator, TolerantFloatValidator,
                                             OmittedValidator, IntValidator, BoolValidator)
 from pyxl_validator.table_validator_registry import ValidatorRegistry
@@ -112,3 +112,6 @@ class TestExcelDifferator(unittest.TestCase):
         result = self.summary.summary_by_header_array()
         for val, expected in zip(result, self.EXPECTED):
             self.assertEqual(val, expected, f"Failed for {val}")
+
+        pate = copy_to_pandas(self.eng_expected3)
+        pate.save_as("test/tmp/v-daten1-pandas")

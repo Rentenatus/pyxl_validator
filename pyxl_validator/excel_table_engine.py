@@ -181,6 +181,9 @@ class TableEnginePyxl(TableEngine):
         """
         Sets font and fill for the cell using openpyxl styles.
         """
+        if not isinstance(fmt, dict):
+            raise TypeError(f"Expected dict for cell format, got {type(fmt)}")
+
         from openpyxl.styles import Font, PatternFill
         cell = self.ws.cell(row=row, column=col)
         cell.font = Font(
@@ -362,6 +365,9 @@ class TableEnginePandas(TableEngine):
             self.set_cell_value(row, col + 1, val)
 
     def set_cell_format(self, row: int, col: int, fmt: dict):
+        if not isinstance(fmt, dict):
+            raise TypeError(f"Expected dict for cell format, got {type(fmt)}")
+
         while row > len(self.fmt):
             self.add_row(len(self.fmt) + 1)
         self.fmt.iat[row - 1, col - 1] = deepcopy(fmt)
@@ -370,7 +376,11 @@ class TableEnginePandas(TableEngine):
         for col, fmt in enumerate(formats):
             self.set_cell_format(row, col + 1, fmt)
 
+    def get_dataframe(self):
+        return self.df.copy()
 
+    def get_format_dataframe(self):
+        return self.fmt.copy()
 
     def save_as(self, filename: str):
         """
@@ -554,3 +564,53 @@ def load_pandas_engine(filename: str):
         fmt = fmt_raw.applymap(lambda x: json.loads(x) if isinstance(x, str) and x.strip() else None)
 
     return TableEnginePandas(df, fmt)
+
+
+
+def copy_to_pandas(tableengine: TableEngine):
+    """
+    Copies the contents of any TableEngine into a new TableEnginePandas instance.
+
+    Returns:
+        TableEnginePandas: A new engine with copied values and formats.
+    """
+    try:
+        import pandas as pd
+    except ImportError:
+        raise ImportError("The package 'pandas' is not installed. Install it with 'pip install pandas'.")
+
+    max_row = tableengine.get_max_row()
+    max_col = tableengine.get_max_col()
+
+    # Collect values
+    values = []
+    for r in range(1, max_row + 1):
+        row_values = tableengine.get_row_values(r)
+        # Padding falls Zeile kürzer ist
+        padded = row_values + [None] * (max_col - len(row_values))
+        values.append(padded)
+
+    df = pd.DataFrame(values)
+
+    # Collect formats
+    formats = []
+    for r in range(1, max_row + 1):
+        row_formats = tableengine.get_row_formats(r)
+        if row_formats is None:
+            row_formats = [{} for _ in range(max_col)]
+        else:
+            row_formats = row_formats + [{}] * (max_col - len(row_formats))
+        formats.append([deepcopy(fmt) for fmt in row_formats])
+
+    fmt_df = pd.DataFrame(formats)
+
+    # Spaltennamen übernehmen, falls vorhanden
+    if max_row >= 1:
+        first_row = tableengine.get_row_values(1)
+        if all(isinstance(x, str) for x in first_row):
+            df.columns = first_row
+            df = df.drop(index=0).reset_index(drop=True)
+            fmt_df.columns = first_row
+            fmt_df = fmt_df.drop(index=0).reset_index(drop=True)
+
+    return TableEnginePandas(df, fmt_df)
