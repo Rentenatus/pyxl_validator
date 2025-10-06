@@ -567,7 +567,7 @@ def load_pandas_engine(filename: str):
 
 
 
-def copy_to_pandas(tableengine: TableEngine):
+def copy_to_pandas(tableengine: TableEngine, with_header: bool = True) -> TableEnginePandas:
     """
     Copies the contents of any TableEngine into a new TableEnginePandas instance.
 
@@ -605,12 +605,10 @@ def copy_to_pandas(tableengine: TableEngine):
     fmt_df = pd.DataFrame(formats)
 
     # Spaltennamen übernehmen, falls vorhanden
-    if max_row >= 1:
+    if with_header and max_row >= 1:
         first_row = tableengine.get_row_values(1)
         if all(isinstance(x, str) for x in first_row):
             df.columns = first_row
-            df = df.drop(index=0).reset_index(drop=True)
             fmt_df.columns = first_row
-            fmt_df = fmt_df.drop(index=0).reset_index(drop=True)
 
     return TableEnginePandas(df, fmt_df)
