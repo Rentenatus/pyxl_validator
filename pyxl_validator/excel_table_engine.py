@@ -298,8 +298,9 @@ class TableEnginePandas(TableEngine):
                     columns=self.fmt.columns
                 )
                 self.fmt = pd.concat([self.fmt, empty_rows], ignore_index=True)
+            self.has_formats = True
         else:
-            self.fmt = pd.DataFrame(index=self.df.index, columns=self.df.columns)
+            self.has_formats = False
 
     def get_max_row(self) -> int:
         return len(self.df)
@@ -320,12 +321,16 @@ class TableEnginePandas(TableEngine):
             return []
 
     def get_cell_format(self, row: int, col: int) -> dict:
+        if not self.has_formats:
+            return None
         try:
             return self.fmt.iat[row - 1, col - 1]
         except (IndexError, AttributeError):
             return None
 
     def get_row_formats(self, row: int) -> list:
+        if not self.has_formats:
+            return []
         try:
             return self.fmt.iloc[row - 1].tolist()
         except (IndexError, AttributeError):
@@ -350,7 +355,7 @@ class TableEnginePandas(TableEngine):
             self.df.iloc[row - 1:]
         ]).reset_index(drop=True)
 
-        if self.fmt is not None:
+        if self.has_formats and self.fmt is not None:
             empty_fmt = self._pd.Series([{}] * self.get_max_col(), index=self.fmt.columns)
             self.fmt = self._pd.concat([
                 self.fmt.iloc[:row - 1],
@@ -367,7 +372,9 @@ class TableEnginePandas(TableEngine):
     def set_cell_format(self, row: int, col: int, fmt: dict):
         if not isinstance(fmt, dict):
             raise TypeError(f"Expected dict for cell format, got {type(fmt)}")
-
+        if not self.has_formats:
+            self.fmt = self._pd.DataFrame(index=self.df.index, columns=self.df.columns)
+            self.has_formats = True
         while row > len(self.fmt):
             self.add_row(len(self.fmt) + 1)
         self.fmt.iat[row - 1, col - 1] = deepcopy(fmt)
@@ -380,6 +387,8 @@ class TableEnginePandas(TableEngine):
         return self.df.copy()
 
     def get_format_dataframe(self):
+        if not self.has_formats:
+            return None
         return self.fmt.copy()
 
     def save_as(self, filename: str):
@@ -395,11 +404,12 @@ class TableEnginePandas(TableEngine):
         self.df.to_csv(f"{filename}_df.csv", index=False)
 
         # Formats als CSV
-        import warnings
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", FutureWarning)
-            fmt_serialized = self.fmt.applymap(lambda x: json.dumps(x) if isinstance(x, dict) else "")
-        fmt_serialized.to_csv(f"{filename}_fmt.csv", index=False)
+        if self.has_formats and self.fmt is not None:
+            import warnings
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", FutureWarning)
+                fmt_serialized = self.fmt.applymap(lambda x: json.dumps(x) if isinstance(x, dict) else "")
+            fmt_serialized.to_csv(f"{filename}_fmt.csv", index=False)
 
         # Structure als JSON
         structure = {col: str(dtype) for col, dtype in self.df.dtypes.items()}
@@ -557,11 +567,14 @@ def load_pandas_engine(filename: str):
     df = pd.read_csv(f"{filename}_df.csv", dtype=structure)
 
     # Formats
-    fmt_raw = pd.read_csv(f"{filename}_fmt.csv")
-    import warnings
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", FutureWarning)
-        fmt = fmt_raw.applymap(lambda x: json.loads(x) if isinstance(x, str) and x.strip() else None)
+    fmt = None
+    fmt_path = f"{filename}_fmt.csv"
+    if os.path.exists(fmt_path):
+        fmt_raw = pd.read_csv(fmt_path)
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", FutureWarning)
+            fmt = fmt_raw.applymap(lambda x: json.loads(x) if isinstance(x, str) and x.strip() else None)
 
     return TableEnginePandas(df, fmt)
 
