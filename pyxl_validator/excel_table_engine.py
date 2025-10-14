@@ -1,0 +1,627 @@
+"""
+excel_table_engine.py
+
+<copyright>
+Copyright (c) 2025, Janusch Rentenatus. This program and the accompanying materials are made available under the
+terms of the Eclipse Public License v2.0 which accompanies this distribution, and is available at
+http://www.eclipse.org/legal/epl-v20.html
+</copyright>
+
+Provides abstract and concrete table engines for reading and writing Excel files (.xlsx, .xls, .ods).
+Includes row iteration and a factory for engine instantiation.
+"""
+from abc import ABC, abstractmethod
+import os
+from copy import deepcopy
+from typing import Any
+
+import openpyxl
+
+class TableEngine(ABC):
+    """
+    Abstract interface for table engines supporting Excel-like worksheets.
+
+    Defines methods for reading, writing, and formatting cell and row data.
+    """
+
+    # Getter
+    @abstractmethod
+    def get_max_row(self) -> int:
+        """
+        Returns the maximum number of rows in the worksheet.
+        """
+        pass
+
+    @abstractmethod
+    def get_max_col(self) -> int:
+        """
+        Returns the maximum number of columns in the worksheet.
+        """
+        pass
+
+    @abstractmethod
+    def get_cell_value(self, row: int, col: int):
+        """
+        Returns the value of the cell at the given row and column.
+        """
+        pass
+
+    @abstractmethod
+    def get_row_values(self, row: int) -> list:
+        """
+        Returns a list of all cell values in the given row.
+        """
+        pass
+
+    @abstractmethod
+    def get_cell_format(self, row: int, col: int) -> dict:
+        """
+        Returns the format of the cell at the given row and column as a dictionary.
+        """
+        pass
+
+    @abstractmethod
+    def get_row_formats(self, row: int) -> list:
+        """
+        Returns a list of format dictionaries for all cells in the given row.
+        """
+        pass
+
+    # Tester
+    @abstractmethod
+    def is_readonly(self) -> bool:
+        """
+        Returns True if the underlying file is read-only.
+        """
+        pass
+
+    def is_engine_readonly(self) -> bool:
+        """
+        Returns True if the engine implementation is read-only.
+        """
+        pass
+
+    # Setter
+    @abstractmethod
+    def set_cell_value(self, row: int, col: int, value):
+        """
+        Sets the value of the cell at the given row and column.
+        """
+        pass
+
+    @abstractmethod
+    def add_row(self, row: int):
+        """
+        Inserts a new row at the given position.
+        """
+        pass
+
+    @abstractmethod
+    def set_row_values(self, row: int, values: list):
+        """
+        Sets the values of all cells in the given row.
+        """
+        pass
+
+    @abstractmethod
+    def set_cell_format(self, row: int, col: int, fmt: dict):
+        """
+        Sets the format of the cell at the given row and column.
+        """
+        pass
+
+    @abstractmethod
+    def set_row_formats(self, row: int, formats: list):
+        """
+        Sets the formats of all cells in the given row.
+        """
+        pass
+
+
+class TableEnginePyxl(TableEngine):
+    """
+    Table engine implementation for .xlsx files using openpyxl.
+
+    Supports reading and writing cell values and formats.
+    """
+
+    def __init__(self, ws):
+        self.ws = ws
+
+    def get_max_row(self) -> int:
+        return self.ws.max_row
+
+    def get_max_col(self) -> int:
+        return self.ws.max_column
+
+    def get_cell_value(self, row: int, col: int):
+        return self.ws.cell(row=row, column=col).value
+
+    def get_row_values(self, row: int) -> list:
+        return [self.ws.cell(row=row, column=c).value for c in range(1, self.get_max_col() + 1)]
+
+    def get_cell_format(self, row: int, col: int) -> dict:
+        """
+        Returns font and fill information for the cell as a dictionary.
+        """
+        cell = self.ws.cell(row=row, column=col)
+        font = cell.font
+        fill = cell.fill
+        number_format = cell.number_format
+        return {
+            "font_name": font.name,
+            "font_size": font.size,
+            "bold": font.bold,
+            "italic": font.italic,
+            "font_color": font.color.rgb if font.color and font.color.type == "rgb" else None,
+            "fill_color": fill.fgColor.rgb if fill and fill.patternType and fill.fgColor.type == "rgb" else None,
+            "number_format": number_format or "General"
+        }
+
+    def get_row_formats(self, row: int) -> list:
+        return [self.get_cell_format(row, c) for c in range(1, self.get_max_col() + 1)]
+
+    def is_readonly(self) -> bool:
+        return self.ws.parent.read_only
+
+    def is_engine_readonly(self) -> bool:
+        return False
+
+    def set_cell_value(self, row: int, col: int, value):
+        self.ws.cell(row=row, column=col).value = value
+
+    def add_row(self, row: int):
+        self.ws.insert_rows(row)
+
+    def set_row_values(self, row: int, values: list):
+        for c, val in enumerate(values, start=1):
+            self.set_cell_value(row, c, val)
+
+    def set_cell_format(self, row: int, col: int, fmt: dict):
+        """
+        Sets font and fill for the cell using openpyxl styles.
+        """
+        if not isinstance(fmt, dict):
+            raise TypeError(f"Expected dict for cell format, got {type(fmt)}")
+
+        from openpyxl.styles import Font, PatternFill
+        cell = self.ws.cell(row=row, column=col)
+        cell.font = Font(
+            name=fmt.get("font_name", cell.font.name),
+            size=fmt.get("font_size", cell.font.size),
+            bold=fmt.get("bold", cell.font.bold),
+            italic=fmt.get("italic", cell.font.italic),
+            color=fmt.get("font_color", cell.font.color)
+        )
+        if fmt.get("fill_color"):
+            cell.fill = PatternFill(start_color=fmt["fill_color"], end_color=fmt["fill_color"], fill_type="solid")
+        # Number Format
+        if "number_format" in fmt:
+            cell.number_format = fmt["number_format"]
+
+    def set_row_formats(self, row: int, formats: list):
+        if formats is None:
+            return
+        for c, fmt in enumerate(formats, start=1):
+            self.set_cell_format(row, c, fmt)
+
+
+class TableEnginePyexcel(TableEngine):
+    """
+    Table engine implementation for .xls and .ods files using pyexcel.
+
+    Only supports reading. Writing and formatting are not supported and will raise NotImplementedError.
+    """
+
+    def __init__(self, sheet):
+        self.sheet = sheet
+
+    def get_max_row(self) -> int:
+        return self.sheet.number_of_rows()
+
+    def get_max_col(self) -> int:
+        return self.sheet.number_of_columns()
+
+    def get_cell_value(self, row: int, col: int):
+        """
+        Returns the value of the cell at the given row and column (1-based).
+        """
+        try:
+            return self.sheet[row - 1, col - 1]
+        except (IndexError, KeyError):
+            return None
+
+    def get_row_values(self, row: int) -> list:
+        """
+        Returns a list of all cell values in the given row (1-based).
+        """
+        try:
+            raw_row = self.sheet.row[row - 1]
+            return list(raw_row)
+        except (IndexError, KeyError):
+            return []
+
+    def get_cell_format(self, row: int, col: int) -> dict:
+        return None
+
+    def get_row_formats(self, row: int) -> list:
+        return None
+
+    def is_readonly(self) -> bool:
+        return True
+
+    def is_engine_readonly(self) -> bool:
+        return True
+
+    def set_cell_value(self, row: int, col: int, value):
+        raise NotImplementedError("pyexcel does not support writing cell values.")
+
+    def add_row(self, row: int):
+        raise NotImplementedError("pyexcel does not support adding rows.")
+
+    def set_row_values(self, row: int, values: list):
+        raise NotImplementedError("pyexcel does not support writing row values.")
+
+    def set_cell_format(self, row: int, col: int, fmt: dict):
+        raise NotImplementedError("pyexcel does not support cell formatting.")
+
+    def set_row_formats(self, row: int, formats: list):
+        raise NotImplementedError("pyexcel does not support row formatting.")
+
+
+
+class TableEnginePandas(TableEngine):
+
+    """
+    Table engine implementation using pandas DataFrame.
+
+    Supports reading and writing cell values. Optional format DataFrame can store cell-level formatting.
+    """
+
+    def __init__(self, df, fmt=None):
+        try:
+            import pandas as pd
+        except ImportError:
+            raise RuntimeError("TableEnginePandas requires pandas to be installed.")
+
+        self._pd = pd
+        self.df = df.copy()
+
+        # Format vorbereiten
+        if fmt is not None:
+            self.fmt = fmt.copy()
+            # Zeilen auffüllen, falls fmt kürzer ist
+            missing_rows = len(self.df) - len(self.fmt)
+            if missing_rows > 0:
+                empty_rows = pd.DataFrame(
+                    [[{}] * len(self.fmt.columns)] * missing_rows,
+                    columns=self.fmt.columns
+                )
+                self.fmt = pd.concat([self.fmt, empty_rows], ignore_index=True)
+            self.has_formats = True
+        else:
+            self.has_formats = False
+
+    def get_max_row(self) -> int:
+        return len(self.df)
+
+    def get_max_col(self) -> int:
+        return len(self.df.columns)
+
+    def get_cell_value(self, row: int, col: int):
+        try:
+            return self.df.iat[row - 1, col - 1]
+        except IndexError:
+            return None
+
+    def get_row_values(self, row: int) -> list:
+        try:
+            return self.df.iloc[row - 1].tolist()
+        except IndexError:
+            return []
+
+    def get_cell_format(self, row: int, col: int) -> dict:
+        if not self.has_formats:
+            return None
+        try:
+            return self.fmt.iat[row - 1, col - 1]
+        except (IndexError, AttributeError):
+            return None
+
+    def get_row_formats(self, row: int) -> list:
+        if not self.has_formats:
+            return []
+        try:
+            return self.fmt.iloc[row - 1].tolist()
+        except (IndexError, AttributeError):
+            return []
+
+    def is_readonly(self) -> bool:
+        return False
+
+    def is_engine_readonly(self) -> bool:
+        return False
+
+    def set_cell_value(self, row: int, col: int, value):
+        while row > len(self.df):
+            self.add_row(len(self.df) + 1)
+        self.df.iat[row - 1, col - 1] = value
+
+    def add_row(self, row: int):
+        empty_row = self._pd.Series([None] * self.get_max_col(), index=self.df.columns)
+        self.df = self._pd.concat([
+            self.df.iloc[:row - 1],
+            self._pd.DataFrame([empty_row]),
+            self.df.iloc[row - 1:]
+        ]).reset_index(drop=True)
+
+        if self.has_formats and self.fmt is not None:
+            empty_fmt = self._pd.Series([{}] * self.get_max_col(), index=self.fmt.columns)
+            self.fmt = self._pd.concat([
+                self.fmt.iloc[:row - 1],
+                self._pd.DataFrame([empty_fmt]),
+                self.fmt.iloc[row - 1:]
+            ]).reset_index(drop=True)
+
+    def set_row_values(self, row: int, values: list):
+        while row > len(self.df):
+            self.add_row(len(self.df) + 1)
+        for col, val in enumerate(values):
+            self.set_cell_value(row, col + 1, val)
+
+    def set_cell_format(self, row: int, col: int, fmt: dict):
+        if not isinstance(fmt, dict):
+            raise TypeError(f"Expected dict for cell format, got {type(fmt)}")
+        if not self.has_formats:
+            self.fmt = self._pd.DataFrame(index=self.df.index, columns=self.df.columns)
+            self.has_formats = True
+        while row > len(self.fmt):
+            self.add_row(len(self.fmt) + 1)
+        self.fmt.iat[row - 1, col - 1] = deepcopy(fmt)
+
+    def set_row_formats(self, row: int, formats: list):
+        for col, fmt in enumerate(formats):
+            self.set_cell_format(row, col + 1, fmt)
+
+    def get_dataframe(self):
+        return self.df.copy()
+
+    def get_format_dataframe(self):
+        if not self.has_formats:
+            return None
+        return self.fmt.copy()
+
+    def save_as(self, filename: str):
+        """
+        Saves the DataFrame, format DataFrame, and structure to disk.
+        """
+        try:
+            import json
+        except ImportError:
+            raise ImportError("The package 'json' is not installed. Install it with 'pip install json'.")
+
+        # Values als CSV
+        self.df.to_csv(f"{filename}_df.csv", index=False)
+
+        # Formats als CSV
+        if self.has_formats and self.fmt is not None:
+            import warnings
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", FutureWarning)
+                fmt_serialized = self.fmt.applymap(lambda x: json.dumps(x) if isinstance(x, dict) else "")
+            fmt_serialized.to_csv(f"{filename}_fmt.csv", index=False)
+
+        # Structure als JSON
+        structure = {col: str(dtype) for col, dtype in self.df.dtypes.items()}
+        with open(f"{filename}_st.json", "w", encoding="utf-8") as f:
+            json.dump(structure, f, indent=2)
+
+
+# ============================================================
+# Iteration
+# ============================================================
+
+class TableRowEnumerator:
+    """
+    Iterator for TableEngine rows.
+
+    Allows row-wise iteration over a worksheet using `next()` or `for row in ...`.
+    Supports inserting a new row at the current position with `add_row(values)`.
+
+    Each iteration yields a tuple `(row_index, row_values)`.
+
+    Example:
+        engine = load_engine("data.xlsx", "Measurements")
+        for row_index, row_values in TableRowEnumerator(engine):
+            print(f"Row {row_index}: {row_values}")
+
+        enumerator = TableRowEnumerator(engine)
+        while True:
+            try:
+                r, values = next(enumerator)
+                # Processing...
+                row_index = enum.add_row(["Measurement A", 42.0, True])
+                print(f"Row {row_index} inserted.")
+            except StopIteration:
+                break
+    """
+
+    def __init__(self, engine: TableEngine, start_row: int = 1):
+        self.engine = engine
+        self.current = start_row
+        self.max_row = engine.get_max_row()
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.current > self.max_row:
+            raise StopIteration
+        row_values = self.engine.get_row_values(self.current)
+        result = (self.current, row_values)
+        self.current += 1
+        return result
+
+    def get_row_formats(self):
+        return self.engine.get_row_formats(self.current-1)
+
+    def add_row(self, values: list) -> int:
+        """
+        Inserts a new row at the current position.
+
+        Args:
+            values (list): List of cell values for the new row.
+
+        Returns:
+            int: The index of the inserted row.
+        """
+        self.engine.add_row(self.current)
+        self.engine.set_row_values(self.current, values)
+        inserted_row = self.current
+        self.current += 1
+        self.max_row += 1
+        return inserted_row
+
+    def get_max_row(self):
+        """
+        Returns the current maximum row index.
+        """
+        return self.max_row
+
+
+# ============================================================
+# Factory
+# ============================================================
+
+def load_engine(file_path: str, sheet_name: str) -> tuple[Any, TableEngine]:
+    """
+    Loads an Excel file (.xlsx, .xls, .ods) and returns the workbook and the corresponding TableEngine.
+
+    Args:
+        file_path (str): Path to the Excel file.
+        sheet_name (str): Name of the sheet to load.
+
+    Returns:
+        tuple: (Workbook, TableEngine) for the loaded file and sheet.
+
+    Raises:
+        ImportError: If required packages for .xls or .ods are not installed.
+        ValueError: If the file extension is not supported.
+    """
+    ext = os.path.splitext(file_path)[1].lower()
+    if ext == ".xlsx":
+        wb = openpyxl.load_workbook(file_path, data_only=False)
+        return wb, TableEnginePyxl(wb[sheet_name])
+    elif ext == ".xls":
+        try:
+            import pyexcel
+        except ImportError:
+            raise ImportError("The package 'pyexcel' is not installed. Install it with 'pip install pyexcel'.")
+        try:
+            import pyexcel_xls
+        except ImportError:
+            raise ImportError("The package 'pyexcel_xls' is not installed. Install it with 'pip install pyexcel_xls'.")
+        wb = pyexcel.get_book(file_name=file_path)
+        return wb, TableEnginePyexcel(wb.sheet_by_name(sheet_name))
+    elif ext == ".ods":
+        try:
+            import pyexcel
+        except ImportError:
+            raise ImportError("The package 'pyexcel' is not installed. Install it with 'pip install pyexcel'.")
+        try:
+            import pyexcel_ods
+        except ImportError:
+            raise ImportError("The package 'pyexcel_ods' is not installed. Install it with 'pip install pyexcel_ods'.")
+        wb = pyexcel.get_book(file_name=file_path)
+        return wb, TableEnginePyexcel(wb.sheet_by_name(sheet_name))
+    else:
+        raise ValueError(f"Unsupported file extension: {ext}")
+
+def get_pandas_engine(df, fmt=None):
+    try:
+        import pandas as pd
+    except ImportError:
+        raise ImportError("The package 'pandas' is not installed. Install it with 'pip install pandas'.")
+    return TableEnginePandas(df, fmt)
+
+def load_pandas_engine(filename: str):
+    """
+    Loads the DataFrame, format DataFrame, and structure from disk.
+    Returns a new TableEnginePandas instance.
+    """
+    try:
+        import json
+    except ImportError:
+        raise ImportError("The package 'json' is not installed. Install it with 'pip install json'.")
+    try:
+        import pandas as pd
+    except ImportError:
+        raise ImportError("The package 'pandas' is not installed. Install it with 'pip install pandas'.")
+
+
+    # Structure
+    with open(f"{filename}_st.json", "r", encoding="utf-8") as f:
+        structure = json.load(f)
+
+    # Values
+    df = pd.read_csv(f"{filename}_df.csv", dtype=structure)
+
+    # Formats
+    fmt = None
+    fmt_path = f"{filename}_fmt.csv"
+    if os.path.exists(fmt_path):
+        fmt_raw = pd.read_csv(fmt_path)
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", FutureWarning)
+            fmt = fmt_raw.applymap(lambda x: json.loads(x) if isinstance(x, str) and x.strip() else None)
+
+    return TableEnginePandas(df, fmt)
+
+
+
+def copy_to_pandas(tableengine: TableEngine, with_header: bool = True) -> TableEnginePandas:
+    """
+    Copies the contents of any TableEngine into a new TableEnginePandas instance.
+
+    Returns:
+        TableEnginePandas: A new engine with copied values and formats.
+    """
+    try:
+        import pandas as pd
+    except ImportError:
+        raise ImportError("The package 'pandas' is not installed. Install it with 'pip install pandas'.")
+
+    max_row = tableengine.get_max_row()
+    max_col = tableengine.get_max_col()
+
+    # Collect values
+    values = []
+    for r in range(1, max_row + 1):
+        row_values = tableengine.get_row_values(r)
+        # Padding falls Zeile kürzer ist
+        padded = row_values + [None] * (max_col - len(row_values))
+        values.append(padded)
+
+    df = pd.DataFrame(values)
+
+    # Collect formats
+    formats = []
+    for r in range(1, max_row + 1):
+        row_formats = tableengine.get_row_formats(r)
+        if row_formats is None:
+            row_formats = [{} for _ in range(max_col)]
+        else:
+            row_formats = row_formats + [{}] * (max_col - len(row_formats))
+        formats.append([deepcopy(fmt) for fmt in row_formats])
+
+    fmt_df = pd.DataFrame(formats)
+
+    # Spaltennamen übernehmen, falls vorhanden
+    if with_header and max_row >= 1:
+        first_row = tableengine.get_row_values(1)
+        if all(isinstance(x, str) for x in first_row):
+            df.columns = first_row
+            fmt_df.columns = first_row
+
+    return TableEnginePandas(df, fmt_df)
