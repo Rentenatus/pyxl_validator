@@ -345,6 +345,11 @@ class TableEnginePandas(TableEngine):
     def set_cell_value(self, row: int, col: int, value):
         while row > len(self.df):
             self.add_row(len(self.df) + 1)
+        while col > self.get_max_col():
+            new_col_name = f"Column_{self.get_max_col() + 1}"
+            self.df[new_col_name] = None
+            if self.has_formats and self.fmt is not None:
+                self.fmt[new_col_name] = None
         self.df.iat[row - 1, col - 1] = value
 
     def add_row(self, row: int):
@@ -377,6 +382,11 @@ class TableEnginePandas(TableEngine):
             self.has_formats = True
         while row > len(self.fmt):
             self.add_row(len(self.fmt) + 1)
+        while col > self.get_max_col():
+            new_col_name = f"Column_{self.get_max_col() + 1}"
+            self.df[new_col_name] = None
+            if self.has_formats and self.fmt is not None:
+                self.fmt[new_col_name] = None
         self.fmt.iat[row - 1, col - 1] = deepcopy(fmt)
 
     def set_row_formats(self, row: int, formats: list):

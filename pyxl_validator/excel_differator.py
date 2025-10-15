@@ -30,8 +30,8 @@ from pyxl_validator.excel_table_engine import TableEngine, TableRowEnumerator
 from pyxl_validator.table_comparison_summary import ComparisonSummary
 
 
-def differentiate_sheets_by_ws(eng1: TableEngine, eng2: TableEngine,
-                               registry: ValidatorRegistry, summary: ComparisonSummary):
+def differentiate_sheets_by_ws(eng1: TableEngine, eng2: TableEngine, has_header: bool = True,
+                               registry: ValidatorRegistry =None, summary: ComparisonSummary = None):
     """
     Performs a row-by-row comparison of two tables.
 
@@ -42,6 +42,7 @@ def differentiate_sheets_by_ws(eng1: TableEngine, eng2: TableEngine,
     Args:
         eng1 (TableEngine): Table with measured values.
         eng2 (TableEngine): Table with reference values (will be highlighted and possibly extended).
+        has_header (bool): Whether the first row of messured data is a header.
         registry (ValidatorRegistry): Registry for assigning validators to columns.
         summary (ComparisonSummary): Optional object for collecting erroneous cells.
 
@@ -58,7 +59,7 @@ def differentiate_sheets_by_ws(eng1: TableEngine, eng2: TableEngine,
     validator_arr = registry.resolve_validators(values_row1, max_col)
     if summary:
         summary.set_header_values(values_row1)
-    return DiffConsumer(eng1, eng2, summary).compare_sheets_consume_diff(validator_arr)
+    return DiffConsumer(eng1, eng2, summary).compare_sheets_consume_diff(validator_arr, has_header)
 
 # ------------------------------------------------------------
 # DiffConsumer
@@ -88,17 +89,18 @@ class DiffConsumer:
         self.start_max_cols2 = eng2.get_max_col()
         self.summary = summary
 
-    def compare_sheets_consume_diff(self, validator_arr):
+    def compare_sheets_consume_diff(self, validator_arr, has_header: bool = True):
         """
         Starts the comparison using compare_sheets_by_enum.
 
         Args:
             validator_arr (list): List of validators per column.
+            has_header (bool): Whether the first row of messured data is a header.
 
         Returns:
             Any: Comparison result (e.g., None in consumer mode).
         """
-        return compare_sheets_by_enum(self.enum1, self.enum2,
+        return compare_sheets_by_enum(self.enum1, self.enum2, has_header=has_header,
                                       validator_arr=validator_arr, consumer=self)
 
     def diff(self, r: int, index1: int, row1: list[Any], index2: int, row2: list[Any],

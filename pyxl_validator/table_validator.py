@@ -126,7 +126,7 @@ class BoolValidator(TableValidator):
     BOOL_VALUES = TRUE_VALUES.union(FALSE_VALUES)
 
     def _normalize(self, val: Any) -> bool:
-        if isinstance(val, bool):
+        if val == False or val == True:
             return val
         if isinstance(val, (int, float)):
             return bool(val)
