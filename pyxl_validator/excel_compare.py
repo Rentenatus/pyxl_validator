@@ -84,7 +84,7 @@ def compare_sheets_by_ws(eng1: TableEngine, eng2: TableEngine,
 
 
 def compare_sheets_by_enum(enum1: TableRowEnumerator, enum2: TableRowEnumerator,
-                           validator_arr=None, consumer=None):
+                           has_header: bool = True, validator_arr=None, consumer=None):
     """
     Compares two TableRowEnumerators row by row and column by column.
 
@@ -94,6 +94,7 @@ def compare_sheets_by_enum(enum1: TableRowEnumerator, enum2: TableRowEnumerator,
     Args:
         enum1 (TableRowEnumerator): Enumerator over measured values.
         enum2 (TableRowEnumerator): Enumerator over expected values.
+        has_header (bool): Whether the first row of messured data is a header.
         validator_arr (list, optional): List of validators per column.
         consumer (object, optional): Object with a diff() method for row-wise processing.
 
@@ -103,9 +104,17 @@ def compare_sheets_by_enum(enum1: TableRowEnumerator, enum2: TableRowEnumerator,
     max_rows = max(enum1.get_max_row(), enum2.get_max_row())
     all_differences = [] if consumer is None else None
 
-    # Prepare default validators for the first row comparison
-    validator_arr_nur_str = calculate_validator_array(enum2.engine, None, None, EqualValidator())
-    compare_next(1, enum1, enum2, validator_arr_nur_str, consumer, all_differences)
+    # Check header row if present
+    if has_header:
+        # Prepare default validators for the first row comparison
+        validator_arr_nur_str = calculate_validator_array(enum2.engine, None, None, EqualValidator())
+        compare_next(1, enum1, enum2, validator_arr_nur_str, consumer, all_differences)
+    else:
+        # Skip first row in enum2 enumerators, if enum1 has no header
+        try:
+            index1, row1 = next(enum2)
+        except StopIteration:
+            pass
 
     # Compare remaining rows
     for r in range(2, max_rows + 1):

@@ -100,9 +100,9 @@ class TestExcelDifferator(unittest.TestCase):
         Differences are highlighted and documented. The updated reference
         tables are saved to temporary files for further inspection.
         """
-        differentiate_sheets_by_ws(self.eng_input1, self.eng_expected1, self.registry, self.summary)
-        differentiate_sheets_by_ws(self.eng_input2, self.eng_expected2, self.registry, self.summary)
-        differentiate_sheets_by_ws(self.eng_input3, self.eng_expected3, self.registry, self.summary)
+        differentiate_sheets_by_ws(self.eng_input1, self.eng_expected1, registry = self.registry, summary = self.summary)
+        differentiate_sheets_by_ws(self.eng_input2, self.eng_expected2, registry = self.registry, summary = self.summary)
+        differentiate_sheets_by_ws(self.eng_input3, self.eng_expected3, registry = self.registry, summary = self.summary)
 
         # Save the updated reference tables
         self.wb1.save("test/tmp/v-daten1-xlsx.xlsx")
