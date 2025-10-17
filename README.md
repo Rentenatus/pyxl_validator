@@ -95,7 +95,7 @@ wb1.save("test/tmp/v-daten1-xlsx.xlsx")
 ```
 
 # License
-Eclipse Public License v2.
+Apache-2.0 license.
 
 # Notes
 - The API is intentionally modular; custom TableEngine implementations or registry configurations are possible.
